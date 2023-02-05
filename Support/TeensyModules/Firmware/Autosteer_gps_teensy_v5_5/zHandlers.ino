@@ -26,6 +26,11 @@ char imuRoll[6];
 char imuPitch[6];
 char imuYawRate[6];
 
+// Send GGA buffer, interval and last time
+char ggaNmea[100];
+uint32_t ggaSendInterval = 0;
+uint32_t ggaSendTime = 0;
+
 // If odd characters showed up.
 void errorHandler()
 {
@@ -96,7 +101,35 @@ void GGA_Handler() //Rec'd GGA
         BuildNmea();
     }
     
-    gpsReadyTime = systick_millis_count;    //Used for GGA timeout (LED's ETC) 
+    gpsReadyTime = systick_millis_count;    //Used for GGA timeout (LED's ETC)
+
+    if (ggaSendInterval && systick_millis_count - ggaSendTime >= ggaSendInterval)
+    {
+        // Send gga to RTK Comport for VRS
+        strcpy(ggaNmea, "");
+        strcat(ggaNmea, "$GPGGA");
+
+        uint8_t argCount = parser.argCount();
+        char argBuffer[15] = {0};
+
+        for (uint8_t i = 0; i < argCount; i++)
+        {
+            strcat(ggaNmea, ",");
+
+            parser.getArg(i, argBuffer);
+            strcat(ggaNmea, argBuffer);
+        }
+
+        strcat(ggaNmea, "*");
+        CalculateChecksum(ggaNmea, 100);
+        strcat(ggaNmea, "\r\n");
+
+        SerialRTK.write(ggaNmea);
+        SerialRTK.flush();
+
+        // Save the current time
+        ggaSendTime = systick_millis_count;
+    }
 }
 
 void readBNO()
@@ -261,6 +294,7 @@ void imuHandler()
             {
               dualTemp += rollDeltaSmooth;
             }
+
             dtostrf(dualTemp, 3, 1, imuRoll);
 
         }
@@ -270,8 +304,7 @@ void imuHandler()
             dtostrf(rollDual, 3, 1, imuRoll);
             
             // the Dual heading raw
-            dtostrf(heading, 3, 1, imuHeading);
-            
+            dtostrf(heading, 3, 1, imuHeading);            
         }
     }
 }
@@ -336,13 +369,13 @@ void BuildNmea(void)
 
     strcat(nmea, "*");
 
-    CalculateChecksum();
+    CalculateChecksum(nmea, 100);
 
     strcat(nmea, "\r\n");
 
     if (!passThroughGPS && !passThroughGPS2)
     {
-        SerialAOG.write(nmea);  //Always send USB GPS data
+        //SerialAOG.write(nmea);  //Always send USB GPS data
     }
 
     if (Ethernet_running)   //If ethernet running send the GPS there
@@ -354,16 +387,16 @@ void BuildNmea(void)
     }
 }
 
-void CalculateChecksum(void)
+void CalculateChecksum(char* nmeaBuffer, int16_t length)
 {
   int16_t sum = 0;
   int16_t inx = 0;
   char tmp;
 
   // The checksum calc starts after '$' and ends before '*'
-  for (inx = 1; inx < 200; inx++)
+  for (inx = 1; inx < length; inx++)
   {
-    tmp = nmea[inx];
+    tmp = nmeaBuffer[inx];
 
     // * Indicates end of data and start of checksum
     if (tmp == '*')
@@ -376,11 +409,11 @@ void CalculateChecksum(void)
 
   byte chk = (sum >> 4);
   char hex[2] = { asciiHex[chk], 0 };
-  strcat(nmea, hex);
+  strcat(nmeaBuffer, hex);
 
   chk = (sum % 16);
   char hex2[2] = { asciiHex[chk], 0 };
-  strcat(nmea, hex2);
+  strcat(nmeaBuffer, hex2);
 }
 
 /*
