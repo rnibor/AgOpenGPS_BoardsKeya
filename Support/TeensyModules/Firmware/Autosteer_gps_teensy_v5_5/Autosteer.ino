@@ -75,7 +75,7 @@ const uint16_t WATCHDOG_FORCE_VALUE = WATCHDOG_THRESHOLD + 2; // Should be great
 uint8_t watchdogTimer = WATCHDOG_FORCE_VALUE;
 
 //Heart beat hello AgIO
-uint8_t helloFromIMU[] = { 128, 129, 121, 121, 1, 1, 71 };
+uint8_t helloFromIMU[] = { 128, 129, 121, 121, 5, 0, 0, 0, 0, 0, 71 };
 uint8_t helloFromAutoSteer[] = { 0x80, 0x81, 126, 126, 5, 0, 0, 0, 0, 0, 71 };
 int16_t helloSteerPosition = 0;
 
@@ -347,7 +347,7 @@ void autosteerLoop()
     if (steerConfig.CurrentSensor)
     {
       sensorSample = (float)analogRead(CURRENT_SENSOR_PIN);
-      sensorSample = (abs(512 - sensorSample)) * 0.5;
+      sensorSample = (abs(775 - sensorSample)) * 0.5;
       sensorReading = sensorReading * 0.7 + sensorSample * 0.3;
       if (sensorReading >= steerConfig.PulseCountMax)
       {
@@ -721,9 +721,12 @@ void ReceiveUdp()
                 //make really sure this is the reply pgn
                 if (autoSteerUdpData[4] == 3 && autoSteerUdpData[5] == 202 && autoSteerUdpData[6] == 202)
                 {
+                    IPAddress rem_ip = Eth_udpAutoSteer.remoteIP();
+
                     //hello from AgIO
-                    uint8_t scanReply[] = { 128, 129, Eth_myip[3], 203, 4,
-                        Eth_myip[0], Eth_myip[1], Eth_myip[2], Eth_myip[3], 23 };
+                    uint8_t scanReply[] = { 128, 129, Eth_myip[3], 203, 7,
+                        Eth_myip[0], Eth_myip[1], Eth_myip[2], Eth_myip[3], 
+                        rem_ip[0],rem_ip[1],rem_ip[2], 23 };
 
                     //checksum
                     int16_t CK_A = 0;
