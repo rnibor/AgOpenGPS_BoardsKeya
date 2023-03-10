@@ -29,38 +29,20 @@
 // Serial Ports
 #define SerialAOG Serial                //AgIO USB conection
 #define SerialRTK Serial3               //RTK radio
-HardwareSerial* SerialGPS = &Serial7;   //Main postion receiver (GGA) (Serial2 must be used here with T4.0 / Basic Panda boards - Should auto swap)
+
+HardwareSerial* SerialGPS = &Serial7;   //Main postion receiver (GGA)
 HardwareSerial* SerialGPS2 = &Serial2;  //Dual heading receiver 
-HardwareSerial* SerialGPSTmp = NULL;
-//HardwareSerial* SerialAOG = &Serial;
+
+HardwareSerial* SerialIMU = &Serial5;   //IMU BNO-085
 
 const int32_t baudAOG = 115200;
 const int32_t baudGPS = 460800;
 const int32_t baudRTK = 9600;
 
-// Baudrates for detecting UBX receiver
-uint32_t baudrates[]
-{
-  4800,
-  9600,
-  19200,
-  38400,
-  57600,
-  115200,
-  230400,
-  460800,
-  921600
-};
-
-const uint32_t nrBaudrates = sizeof(baudrates)/sizeof(baudrates[0]);
-
 #define RAD_TO_DEG_X_10 572.95779513082320876798154814105
 
 const bool invertRoll= true;  //Used for IMU with dual antenna
 #define baseLineLimit 5       //Max CM differance in baseline
-
-#define REPORT_INTERVAL 20    //BNO report time, we want to keep reading it quick & offen. Its not timmed to anything just give constant data.
-uint32_t READ_BNO_TIME = 0;   //Used stop BNO data pile up (This version is without resetting BNO everytime)
 
 //Status LED's
 #define GGAReceivedLED 13         //Teensy onboard LED
@@ -70,22 +52,17 @@ uint32_t READ_BNO_TIME = 0;   //Used stop BNO data pile up (This version is with
 #define GPSGREEN_LED 10           //Green (Flashing = Dual bad, ON = Dual good)
 #define AUTOSTEER_STANDBY_LED 11  //Red
 #define AUTOSTEER_ACTIVE_LED 12   //Green
-uint32_t gpsReadyTime = 0;        //Used for GGA timeout
 
-//for v2.2
-// #define Power_on_LED 22
-// #define Ethernet_Active_LED 23
-// #define GPSRED_LED 20
-// #define GPSGREEN_LED 21
-// #define AUTOSTEER_STANDBY_LED 38
-// #define AUTOSTEER_ACTIVE_LED 39
 
 /*****************************************************************/
 
-// Ethernet Options (Teensy 4.1 Only)
-#ifdef ARDUINO_TEENSY41
 #include <NativeEthernet.h>
 #include <NativeEthernetUdp.h>
+
+#include "BNO_RVC.h"
+
+#include "zNMEAParser.h"
+#include <Wire.h>
 
 struct ConfigIP {
     uint8_t ipOne = 192;
@@ -109,7 +86,6 @@ EthernetUDP Eth_udpNtrip;     //In port 2233
 EthernetUDP Eth_udpAutoSteer; //In & Out Port 8888
 
 IPAddress Eth_ipDestination;
-#endif // ARDUINO_TEENSY41
 
 byte CK_A = 0;
 byte CK_B = 0;
@@ -119,18 +95,12 @@ int relposnedByteCount = 0;
 unsigned long prev_PWM_Millis = 0;
 byte velocityPWM_Pin = 36;      // Velocity (MPH speed) PWM pin
 
-#include "zNMEAParser.h"
-#include <Wire.h>
-
 //Used to set CPU speed
 extern "C" uint32_t set_arm_clock(uint32_t frequency); // required prototype
 
 bool useDual = false;
 bool dualReadyGGA = false;
 bool dualReadyRelPos = false;
-
-// booleans to see if we are using serial BNO08x
-bool useBNO08x = false;
 
 //Dual
 double headingcorr = 900;  //90deg heading correction (90deg*10)
@@ -154,17 +124,28 @@ uint8_t RTKrxbuffer[serial_buffer_size];    //Extra serial rx buffer
 /* A parser is declared with 3 handlers at most */
 NMEAParser<2> parser;
 
-bool isTriggered = false;
 bool blink = false;
 
-bool Autosteer_running = true; //Auto set off in autosteer setup
 bool Ethernet_running = false; //Auto set on in ethernet setup
-bool GGA_Available = false;    //Do we have GGA on correct port?
-uint32_t PortSwapTime = 0;
 
 float roll = 0;
 float pitch = 0;
 float yaw = 0;
+
+//time from Last GGA till IMU sample
+elapsedMillis imuDelayTimer;
+elapsedMillis gpsLostTimer;
+
+// booleans to see if we are using serial BNO08x
+bool useBNO08x = false;
+
+//start the elapsed time for imu delay
+bool isGGA_Updated = false;
+
+//Roomba Vac mode for BNO085 and data
+BNO_rvc rvc = BNO_rvc();
+BNO_rvcData bnoData;
+
 
 //Fusing BNO with Dual
 double rollDelta;
@@ -241,6 +222,10 @@ void setup()
   SerialGPS2->addMemoryForRead(GPS2rxbuffer, serial_buffer_size);
   SerialGPS2->addMemoryForWrite(GPS2txbuffer, serial_buffer_size);
 
+  delay(10);
+  SerialIMU->begin(115200); // This is the baud rate specified by the BNO datasheet
+
+
   Serial.println("SerialAOG, SerialRTK, SerialGPS and SerialGPS2 initialized");
 
   Serial.println("\r\nStarting AutoSteer...");
@@ -256,241 +241,18 @@ void setup()
 
 void loop()
 {
-    if (GGA_Available == false && !passThroughGPS && !passThroughGPS2)
-    {
-        if (systick_millis_count - PortSwapTime >= 10000)
-        {
-            Serial.println("Swapping GPS ports...\r\n");
-            SerialGPSTmp = SerialGPS;
-            SerialGPS = SerialGPS2;
-            SerialGPS2 = SerialGPSTmp;
-            PortSwapTime = systick_millis_count;
-        }
-    }
+    rvc.read(&bnoData);
 
     // Pass NTRIP etc to GPS
     if (SerialAOG.available())
     {
-        uint8_t incoming_char = SerialAOG.read();
-
-        // Check incoming char against the aogSerialCmd array
-        // The configuration utility will send !AOGR1, !AOGR2 or !AOGED (close/end)
-        if (aogSerialCmdCounter < 4 && aogSerialCmd[aogSerialCmdCounter] == incoming_char)
-        {
-            aogSerialCmdBuffer[aogSerialCmdCounter] = incoming_char;
-            aogSerialCmdCounter++;
-        }
-        // Whole command prefix is in, handle it
-        else if (aogSerialCmdCounter == 4)
-        {
-            aogSerialCmdBuffer[aogSerialCmdCounter] = incoming_char;
-            aogSerialCmdBuffer[aogSerialCmdCounter + 1] = SerialAOG.read();
-
-            if (aogSerialCmdBuffer[aogSerialCmdCounter] == 'R')
-            {
-                HardwareSerial* autoBaudSerial = NULL;
-
-                // Reset SerialGPS and SerialGPS2
-                SerialGPS = &Serial7;
-                SerialGPS2 = &Serial2;
-
-                if (aogSerialCmdBuffer[aogSerialCmdCounter + 1] == '1')
-                {
-                    passThroughGPS = true;
-                    passThroughGPS2 = false;
-                    autoBaudSerial = SerialGPS;
-                }
-                else if (aogSerialCmdBuffer[aogSerialCmdCounter + 1] == '2')
-                {
-                    passThroughGPS = false;
-                    passThroughGPS2 = true;
-                    autoBaudSerial = SerialGPS2;
-                }
-				
-				const uint8_t UBX_SYNCH_1 = 0xB5;
-                const uint8_t UBX_SYNCH_2 = 0x62;
-                const uint8_t UBX_CLASS_ACK = 0x05;
-                const uint8_t UBX_CLASS_CFG = 0x06;
-                const uint8_t UBX_CFG_RATE = 0x08;
-
-                ubxPacket packetCfg{};
-
-                packetCfg.cls = UBX_CLASS_CFG;
-                packetCfg.id = UBX_CFG_RATE;
-                packetCfg.len = 0;
-                packetCfg.startingSpot = 0;
-
-                calcChecksum(&packetCfg);
-
-                byte mon_rate[] = {0xB5, 0x62, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-                mon_rate[2] = packetCfg.cls; 
-                mon_rate[3] = packetCfg.id; 
-                mon_rate[4] = packetCfg.len & 0xFF; 
-                mon_rate[5] = packetCfg.len >> 8;
-                mon_rate[6] = packetCfg.checksumA; 
-                mon_rate[7] = packetCfg.checksumB; 
-
-                // Check baudrate
-                bool communicationSuccessfull = false;
-				uint32_t baudrate = 0;                
-
-				for (uint32_t i = 0; i < nrBaudrates; i++)
-				{
-					baudrate = baudrates[i];
-
-					Serial.print(F("Checking baudrate: "));
-					Serial.println(baudrate);
-
-					autoBaudSerial->begin(baudrate);
-					delay(100);
-
-					// first send dumb data to make sure its on
-					autoBaudSerial->write(0xFF);
-
-					// Clear
-					while (autoBaudSerial->available() > 0)
-					{
-						autoBaudSerial->read();
-					}
-
-					// Send request
-					autoBaudSerial->write(mon_rate, 8);
-
-					uint32_t millis_read = systick_millis_count;
-					constexpr uint32_t UART_TIMEOUT = 1000;
-					int ubxFrameCounter = 0;
-					bool isUbx = false;
-					uint8_t incoming = 0;
-
-					uint8_t requestedClass = packetCfg.cls;
-					uint8_t requestedID = packetCfg.id;
-
-					uint8_t packetBufCls = 0;
-					uint8_t packetBufId = 0;
-
-					do
-					{
-						while (autoBaudSerial->available() > 0)
-						{
-							incoming = autoBaudSerial->read();
-
-							if (!isUbx && incoming == UBX_SYNCH_1) // UBX binary frames start with 0xB5, aka μ
-							{
-								ubxFrameCounter = 0;
-								isUbx = true;
-							}
-
-							if (isUbx)
-							{
-								// Decide what type of response this is
-								if ((ubxFrameCounter == 0) && (incoming != UBX_SYNCH_1))      // ISO 'μ'
-								{
-									isUbx = false;                                            // Something went wrong. Reset.
-								}
-								else if ((ubxFrameCounter == 1) && (incoming != UBX_SYNCH_2)) // ASCII 'b'
-								{
-									isUbx = false;                                            // Something went wrong. Reset.
-								}
-								else if (ubxFrameCounter == 1 && incoming == UBX_SYNCH_2)
-								{
-									// Serial.println("UBX_SYNCH_2");
-									// isUbx should be still true
-								}
-								else if (ubxFrameCounter == 2) // Class
-								{
-									// Record the class in packetBuf until we know what to do with it
-									packetBufCls = incoming; // (Duplication)
-								}
-								else if (ubxFrameCounter == 3) // ID
-								{
-									// Record the ID in packetBuf until we know what to do with it
-									packetBufId = incoming; // (Duplication)
-
-									// We can now identify the type of response
-									// If the packet we are receiving is not an ACK then check for a class and ID match
-									if (packetBufCls != UBX_CLASS_ACK)
-									{
-										// This is not an ACK so check for a class and ID match
-										if ((packetBufCls == requestedClass) && (packetBufId == requestedID))
-										{
-											// This is not an ACK and we have a class and ID match
-											communicationSuccessfull = true;
-										}
-										else
-										{
-											// This is not an ACK and we do not have a class and ID match
-											// so we should keep diverting data into packetBuf and ignore the payload
-											isUbx = false;
-										}
-									}
-								}
-							}
-
-							// Finally, increment the frame counter
-							ubxFrameCounter++;
-						}
-					} while (systick_millis_count - millis_read < UART_TIMEOUT);
-
-					if (communicationSuccessfull)
-					{
-						break;
-					}
-				}
-
-				if (communicationSuccessfull)
-				{
-					SerialAOG.write(aogSerialCmdBuffer, 6);
-					SerialAOG.print(F("Found reciever at baudrate: "));
-					SerialAOG.println(baudrate);
-
-					// Let the configuring program know it can proceed
-					SerialAOG.println("!AOGOK");
-				}
-				else
-				{
-					SerialAOG.println(F("u-blox GNSS not detected. Please check wiring."));
-				}
-
-				aogSerialCmdCounter = 0;
-			}
-            // END command. maybe think of a different abbreviation
-            else if (aogSerialCmdBuffer[aogSerialCmdCounter] == 'E' && aogSerialCmdBuffer[aogSerialCmdCounter + 1] == 'D')
-            {
-                passThroughGPS = false;
-                passThroughGPS2 = false;
-                aogSerialCmdCounter = 0;
-            }
-        }
-        else
-        {
-            aogSerialCmdCounter = 0;
-		}
-
-        if (passThroughGPS)
-        {
-            SerialGPS->write(incoming_char);
-        }
-        else if (passThroughGPS2)
-        {
-            SerialGPS2->write(incoming_char);
-        }
-        else
-        {
-            SerialGPS->write(incoming_char);
-        }
+        SerialGPS->write(SerialAOG.read());        
     }
 
     // Read incoming nmea from GPS
     if (SerialGPS->available())
     {
-        if (passThroughGPS)
-        {
-            SerialAOG.write(SerialGPS->read());
-        }
-        else
-        {
-            parser << SerialGPS->read();
-        }
+        parser << SerialGPS->read();
     }
 
     udpNtrip();
@@ -514,28 +276,21 @@ void loop()
     {
         uint8_t incoming_char = SerialGPS2->read();  //Read RELPOSNED from F9P
 
-        if (passThroughGPS2)
+            // Just increase the byte counter for the first 3 bytes
+        if (relposnedByteCount < 4 && incoming_char == ackPacket[relposnedByteCount])
         {
-            SerialAOG.write(incoming_char);
+            relposnedByteCount++;
+        }
+        else if (relposnedByteCount > 3)
+        {
+            // Real data, put the received bytes in the buffer
+            ackPacket[relposnedByteCount] = incoming_char;
+            relposnedByteCount++;
         }
         else
         {
-            // Just increase the byte counter for the first 3 bytes
-            if (relposnedByteCount < 4 && incoming_char == ackPacket[relposnedByteCount])
-            {
-                relposnedByteCount++;
-            }
-            else if (relposnedByteCount > 3)
-            {
-                // Real data, put the received bytes in the buffer
-                ackPacket[relposnedByteCount] = incoming_char;
-                relposnedByteCount++;
-            }
-            else
-            {
-                // Reset the counter, becaues the start sequence was broken
-                relposnedByteCount = 0;
-            }
+            // Reset the counter, becaues the start sequence was broken
+            relposnedByteCount = 0;
         }
     }
 
@@ -557,7 +312,7 @@ void loop()
     }
 
     //GGA timeout, turn off GPS LED's etc
-    if((systick_millis_count - gpsReadyTime) > 10000) //GGA age over 10sec
+    if(gpsLostTimer > 10000) //GGA age over 10sec
     {
       digitalWrite(GPSRED_LED, LOW);
       digitalWrite(GPSGREEN_LED, LOW);
@@ -565,14 +320,22 @@ void loop()
     }
 
     //Read BNO
-    if((systick_millis_count - READ_BNO_TIME) > REPORT_INTERVAL && useBNO08x)
+    //if((systick_millis_count - READ_BNO_TIME) > REPORT_INTERVAL && useBNO08x)
+    //{
+    //  READ_BNO_TIME = systick_millis_count;
+    //  readBNO();
+    //}
+
+    //wait 40 msec then update imu data for next PANDA sentence
+    if (isGGA_Updated && imuDelayTimer > 40)
     {
-      READ_BNO_TIME = systick_millis_count;
-      readBNO();
+        imuHandler();
+        isGGA_Updated = false;
     }
+
     
-    if (Autosteer_running) autosteerLoop();
-    else ReceiveUdp();
+    ReceiveUdp8888();
+    autosteerLoop();
     
   if (Ethernet.linkStatus() == LinkOFF) 
   {

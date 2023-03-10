@@ -70,7 +70,7 @@ void GGA_Handler() //Rec'd GGA
     }
 
     blink = !blink;
-    GGA_Available = true;
+    isGGA_Updated = true;
 
     if (useDual)
     {
@@ -96,7 +96,7 @@ void GGA_Handler() //Rec'd GGA
         BuildNmea();
     }
     
-    gpsReadyTime = systick_millis_count;    //Used for GGA timeout (LED's ETC) 
+    gpsLostTimer = 0;    //Used for GGA timeout (LED's ETC) 
 }
 
 void VTG_Handler()
