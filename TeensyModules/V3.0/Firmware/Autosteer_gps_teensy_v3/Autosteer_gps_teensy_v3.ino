@@ -54,11 +54,7 @@ uint32_t baudrates[]
 
 const uint32_t nrBaudrates = sizeof(baudrates)/sizeof(baudrates[0]);
 
-#define ImuWire Wire        //SCL=19:A5 SDA=18:A4
 #define RAD_TO_DEG_X_10 572.95779513082320876798154814105
-
-//Swap BNO08x roll & pitch?
-//const bool swapRollPitch = false;
 
 const bool invertRoll= true;  //Used for IMU with dual antenna
 #define baseLineLimit 5       //Max CM differance in baseline
@@ -125,7 +121,6 @@ byte velocityPWM_Pin = 36;      // Velocity (MPH speed) PWM pin
 
 #include "zNMEAParser.h"
 #include <Wire.h>
-#include "BNO08x_AOG.h"
 
 //Used to set CPU speed
 extern "C" uint32_t set_arm_clock(uint32_t frequency); // required prototype
@@ -134,18 +129,8 @@ bool useDual = false;
 bool dualReadyGGA = false;
 bool dualReadyRelPos = false;
 
-// booleans to see if we are using CMPS or BNO08x
-bool useCMPS = false;
+// booleans to see if we are using serial BNO08x
 bool useBNO08x = false;
-
-//CMPS always x60
-#define CMPS14_ADDRESS 0x60
-
-// BNO08x address variables to check where it is
-const uint8_t bno08xAddresses[] = { 0x4A, 0x4B };
-const int16_t nrBNO08xAdresses = sizeof(bno08xAddresses) / sizeof(bno08xAddresses[0]);
-uint8_t bno08xAddress;
-BNO080 bno08x;
 
 //Dual
 double headingcorr = 900;  //90deg heading correction (90deg*10)
@@ -265,80 +250,6 @@ void setup()
   EthernetStart();
 
   Serial.println("\r\nStarting IMU...");
-  //test if CMPS working
-  uint8_t error;
-
-  ImuWire.begin();
-  
-  //Serial.println("Checking for CMPS14");
-  ImuWire.beginTransmission(CMPS14_ADDRESS);
-  error = ImuWire.endTransmission();
-
-  if (error == 0)
-  {
-    //Serial.println("Error = 0");
-    Serial.print("CMPS14 ADDRESs: 0x");
-    Serial.println(CMPS14_ADDRESS, HEX);
-    Serial.println("CMPS14 Ok.");
-    useCMPS = true;
-  }
-  else
-  {
-    //Serial.println("Error = 4");
-    Serial.println("CMPS not Connected or Found");
-  }
-
-  if (!useCMPS)
-  {
-      for (int16_t i = 0; i < nrBNO08xAdresses; i++)
-      {
-          bno08xAddress = bno08xAddresses[i];
-
-          //Serial.print("\r\nChecking for BNO08X on ");
-          //Serial.println(bno08xAddress, HEX);
-          ImuWire.beginTransmission(bno08xAddress);
-          error = ImuWire.endTransmission();
-
-          if (error == 0)
-          {
-              //Serial.println("Error = 0");
-              Serial.print("0x");
-              Serial.print(bno08xAddress, HEX);
-              Serial.println(" BNO08X Ok.");
-
-              // Initialize BNO080 lib
-              if (bno08x.begin(bno08xAddress, ImuWire)) //??? Passing NULL to non pointer argument, remove maybe ???
-              {
-                  //Increase I2C data rate to 400kHz
-                  ImuWire.setClock(400000); 
-
-                  delay(300);
-
-                  // Use gameRotationVector and set REPORT_INTERVAL
-                  bno08x.enableGameRotationVector(REPORT_INTERVAL);
-                  useBNO08x = true;
-              }
-              else
-              {
-                  Serial.println("BNO080 not detected at given I2C address.");
-              }
-          }
-          else
-          {
-              //Serial.println("Error = 4");
-              Serial.print("0x");
-              Serial.print(bno08xAddress, HEX);
-              Serial.println(" BNO08X not Connected or Found");
-          }
-          if (useBNO08x) break;
-      }
-  }
-
-  delay(100);
-  Serial.print("\r\nuseCMPS = ");
-  Serial.println(useCMPS);
-  Serial.print("useBNO08x = ");
-  Serial.println(useBNO08x);
 
   Serial.println("\r\nEnd setup, waiting for GPS...\r\n");
 }
