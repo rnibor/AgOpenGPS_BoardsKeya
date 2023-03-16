@@ -349,7 +349,9 @@ void autosteerLoop()
     {
       sensorSample = (float)analogRead(CURRENT_SENSOR_PIN);
       sensorSample = (abs(775 - sensorSample)) * 0.5;
-      sensorReading = sensorReading * 0.7 + sensorSample * 0.3;
+      sensorReading = sensorReading * 0.7 + sensorSample * 0.3;    
+      sensorReading = min(sensorReading, 255);
+
       if (sensorReading >= steerConfig.PulseCountMax)
       {
           steerSwitch = 1; // reset values like it turned off
