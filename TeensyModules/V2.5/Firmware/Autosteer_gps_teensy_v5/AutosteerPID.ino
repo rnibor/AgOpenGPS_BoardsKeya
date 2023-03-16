@@ -45,6 +45,14 @@ void calcSteeringPID(void)
     pwmDrive = pwmDrive >> 2; // Devide by 4
     pwmDrive += 128;          // add Center Pos.
 
+    // pwmDrive now lies in the range [65 ... 190], which would be great for an ideal opamp
+    // However the TLC081IP is not ideal. Approximating from fig 4, 5 TI datasheet, @Vdd=12v, T=@40Celcius, 0 current
+    // Voh=11.08 volts, Vol=0.185v
+    // (11.08/12)*255=235.45
+    // (0.185/12)*255=3.93
+    pwmDrive = (map(pwmDrive, 4, 235, 0, 255));
+    // output now lies in the range [67 ... 205], the center position is now 136
+
     //Serial.print("pwmDrive: ");
     //Serial.println(pwmDrive);
   }
