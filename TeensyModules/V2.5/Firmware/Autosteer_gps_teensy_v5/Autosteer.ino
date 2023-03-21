@@ -90,6 +90,8 @@ uint8_t aog2Count = 0;
 float sensorReading;
 float sensorSample;
 
+elapsedMillis gpsSpeedUpdateTimer = 0;
+
 //EEPROM
 int16_t EEread = 0;
 
@@ -468,19 +470,29 @@ void autosteerLoop()
   //delay(1);
 
   // Speed pulse
-  if (millis() - prev_PWM_Millis > 100)
+  if (gpsSpeedUpdateTimer < 1000)
   {
-    prev_PWM_Millis = millis();
-    //130 pp meter, 3.6 kmh = 1 m/sec or gpsSpeed * 130/3.6 or gpsSpeed * 36.1111
-    //gpsSpeed is 10x actual speed so 3.61111
-    //float speedPulse = gpsSpeed * 3.61111;
-    //speedPulse = speedPulse * pulseCorrection;
-    //tone(speedPulse_Pin,speedPulse);
+      if (speedPulseUpdateTimer > 200) // 100 (10hz) seems to cause tone lock ups occasionally
+      {
+          speedPulseUpdateTimer = 0;
 
-    // gpsSpeed is in 10x km/h 
-    // speedPulse in 10x mph?
-    float speedPulse = gpsSpeed * 0.621371192 * 10;
-    tone(velocityPWM_Pin, speedPulse);
+          //130 pp meter, 3.6 kmh = 1 m/sec = 130hz or gpsSpeed * 130/3.6 or gpsSpeed * 36.1111
+          //gpsSpeed = ((float)(autoSteerUdpData[5] | autoSteerUdpData[6] << 8)) * 0.1;
+          float speedPulse = gpsSpeed * 36.1111;
+
+          //Serial.print(gpsSpeed); Serial.print(" -> "); Serial.println(speedPulse);
+
+          if (gpsSpeed > 0.11) { // 0.10 wasn't high enough
+              tone(velocityPWM_Pin, uint16_t(speedPulse));
+          }
+          else {
+              noTone(velocityPWM_Pin);
+          }
+      }
+  }
+  else  // if gpsSpeedUpdateTimer hasn't update for 1000 ms, turn off speed pulse
+  {
+      noTone(velocityPWM_Pin);
   }
 
   if (encEnable)
@@ -527,6 +539,7 @@ void ReceiveUdp()
             if (autoSteerUdpData[3] == 0xFE && Autosteer_running)  //254
             {
                 gpsSpeed = ((float)(autoSteerUdpData[5] | autoSteerUdpData[6] << 8)) * 0.1;
+                gpsSpeedUpdateTimer = 0;
 
                 prevGuidanceStatus = guidanceStatus;
 
