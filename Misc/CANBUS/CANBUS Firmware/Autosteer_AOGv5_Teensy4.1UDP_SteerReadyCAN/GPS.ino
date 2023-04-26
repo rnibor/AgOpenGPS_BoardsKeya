@@ -7,6 +7,14 @@
 char rxbuffer[512];   //Extra serial rx buffer
 char txbuffer[512];   //Extra serial tx buffer
 
+// No RadioRTK code support required on AIO, it's on-board
+
+#ifndef isAllInOneBoard
+#define RadioRTK Serial7
+#define RadioBaudRate 115200
+char RTKrxbuffer[512];      //Extra serial rx buffer
+#endif
+
 char nmeaBuffer[200];
 int count=0;
 bool stringComplete = false;
@@ -22,10 +30,16 @@ void GPS_setup()
   GPS.addMemoryForRead(rxbuffer, 512);
   GPS.addMemoryForWrite(txbuffer, 512);
 
+#ifndef isAllInOneBoard
+  RadioRTK.begin(RadioBaudRate);
+  RadioRTK.addMemoryForRead(RTKrxbuffer, 512);
+#endif
+
   // the dash means wildcard
   parser.setErrorHandler(errorHandler);
   parser.addHandler("G-GGA", GGA_Handler);
   parser.addHandler("G-VTG", VTG_Handler);
+  parser.addHandler("G-ZDA", ZDA_Handler);
 
 }
 
@@ -33,70 +47,6 @@ void GPS_setup()
 
 void Read_IMU()
 {
-  //GPS forwarding mode, send the IMU message if needed
-  if (gpsMode == 1 || gpsMode == 2)
-  {
-        IMU_currentTime = millis();
-
-    if (isTriggered && (IMU_currentTime - IMU_lastTime) >= IMU_DELAY_TIME)
-    {
-        isTriggered = false;
-        int16_t temp = 0;
-
-        if (useCMPS)
-        {
-            Wire.beginTransmission(CMPS14_ADDRESS);
-            Wire.write(0x02);
-            Wire.endTransmission();
-
-            Wire.requestFrom(CMPS14_ADDRESS, 2);
-            while (Wire.available() < 2);
-
-            //the heading x10
-            data[6] = Wire.read();
-            data[5] = Wire.read();
-
-            //roll
-            Wire.beginTransmission(CMPS14_ADDRESS);
-            Wire.write(0x1C);
-            Wire.endTransmission();
-
-            Wire.requestFrom(CMPS14_ADDRESS, 2);
-            while (Wire.available() < 2);
-
-            data[8] = Wire.read();
-            data[7] = Wire.read();
-        }
-
-        else if (useBNO08x)
-        {
-            //the heading x10
-            temp = (int16_t)yaw;
-            data[5] = (uint8_t)yaw;
-            data[6] = temp >> 8;
-
-            //the roll x10
-            temp = (int16_t)roll;
-            data[7] = (uint8_t)temp;
-            data[8] = temp >> 8;
-        }
-
-        //checksum
-        int16_t CK_A = 0;
-
-        for (int16_t i = 2; i < dataSize - 1; i++)
-        {
-            CK_A = (CK_A + data[i]);
-        }
-
-        data[dataSize - 1] = CK_A;
-
-        //off to AOG
-        Udp.beginPacket(ipDestination, 9999);
-        Udp.write(data, dataSize);
-        Udp.endPacket();
-    }
-  }
 
   //Gyro Timmed loop
   IMU_currentTime = millis();
@@ -203,7 +153,8 @@ void Forward_Ntrip()
 
     int NtripSize = NtripUdp.parsePacket();
     
-    if (NtripSize) {
+    if (NtripSize) 
+    {
         NtripUdp.read(NtripData, NtripSize);
         //Serial.print("Ntrip Data ="); 
         //Serial.write(NtripData, sizeof(NtripData)); 
@@ -211,6 +162,15 @@ void Forward_Ntrip()
         //Serial.println("Ntrip Forwarded");
         GPS.write(NtripData, NtripSize); 
   }
+
+#ifndef isAllInOneBoard
+//Check for Radio RTK
+    if (RadioRTK.available())
+    {
+        GPS.write(RadioRTK.read());
+    }
+#endif
+
 }
     
 //-------------------------------------------------------------------------------------------------

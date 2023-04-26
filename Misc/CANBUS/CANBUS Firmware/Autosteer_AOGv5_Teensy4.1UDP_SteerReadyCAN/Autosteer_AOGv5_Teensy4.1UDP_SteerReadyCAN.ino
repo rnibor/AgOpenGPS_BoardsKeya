@@ -11,7 +11,7 @@
 // uncomment the following line if you're using the All-In-One-Board
 #define isAllInOneBoard
 
-//Tony / @Commonrail Version 29.01.2023
+//Tony / @Commonrail Version 05.03.2023
 //30.06.2022  - Ryan / @RGM Added JCB CAN engage message
 //02.07.2022  - Added Claas headland from Ryan
 //            - Fix up pilot valve output for Ryan Claas wiring mod 
@@ -19,16 +19,17 @@
 //29.01.2023  - Add WAS mapping option to fix wheel angle to turning radius conversion
 //            - Add Danfoss PVED-CL setup options (Claas mods mainly)
 //            - Add CaseIH/New Holland engage from CAN options
+//05.03.2023  - Add GPS to ISOBUS option
+//            - Add RVC BNO08x option and remove CMPS14 option
 
 // GPS forwarding mode: (Serial Bynav etc)
 // - GPS to Serial3, Forward to AgIO via UDP
 // - Forward Ntrip from AgIO (Port 2233) to Serial3
-// - BNO08x/CMPS14 Data sent as IMU message (Not in Steering Message), sent 70ms after steering message from AgOpen.
 
 // Panda Mode 
 // - GPS to Serial3, Forward to AgIO as Panda via UDP
 // - Forward Ntrip from AgIO (Port 2233) to Serial3
-// - BNO08x/CMPS14 Data sent with Panda data
+// - BNO08x Data sent with Panda data
 
 //This CAN setup is for CANBUS based steering controllers as below:
 //Danfoss PVED-CL & PVED-CLS (Claas, JCB, Massey Fergerson, CaseIH, New Holland, Valtra, Deutz, Lindner)
@@ -56,7 +57,11 @@
 
 //----------------------------------------------------------
 
-String inoVersion = ("\r\nAgOpenGPS Tony UDP CANBUS Ver 18.02.2023 (All In One PCB MOD)");
+#ifdef isAllInOneBoard
+String inoVersion = ("\r\nAgOpenGPS Tony UDP CANBUS Ver 05.03.2023 (AIO mods)");
+#else
+String inoVersion = ("\r\nAgOpenGPS Tony UDP CANBUS Ver 05.03.2023");
+#endif
 
   ////////////////// User Settings /////////////////////////  
 
@@ -106,7 +111,7 @@ String inoVersion = ("\r\nAgOpenGPS Tony UDP CANBUS Ver 18.02.2023 (All In One P
   #include "BNO08x_AOG.h"
 
 /* A parser is declared with 3 handlers at most */
-NMEAParser<2> parser;
+NMEAParser<3> parser;
 
 //Used to set CPU speed
 extern "C" uint32_t set_arm_clock(uint32_t frequency); // required prototype
@@ -124,7 +129,7 @@ elapsedMillis tempChecker;
     };  ConfigIP networkAddress;   //3 bytes
   
   // Module IP Address / Port
-  static uint8_t ip[] = { 0,0,0,126 };
+  IPAddress ip = { 0,0,0,126 };
   unsigned int localPort = 8888;  
   unsigned int NtripPort = 2233;    
   
@@ -136,7 +141,7 @@ elapsedMillis tempChecker;
   byte mac[] = { 0x00,0x00,0x56,0x00,0x00,0x7E };
   
   // Buffer For Receiving UDP Data
-  byte udpData[UDP_TX_PACKET_MAX_SIZE];  // Incomming Buffer
+  byte udpData[128];    // Incoming Buffer
   byte NtripData[512];   
 
   // An EthernetUDP instance to let us send and receive packets over UDP
@@ -148,9 +153,9 @@ elapsedMillis tempChecker;
 //----Teensy 4.1 CANBus--Start---------------------
 
 #include <FlexCAN_T4.h>
-FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> K_Bus;    //Tractor / Control Bus
-FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16> ISO_Bus;  //ISO Bus
-FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16> V_Bus;    //Steering Valve Bus
+FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_256> K_Bus;    //Tractor / Control Bus
+FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_256> ISO_Bus;  //ISO Bus
+FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_256> V_Bus;    //Steering Valve Bus
 
 #ifdef isAllInOneBoard
 #define Power_on_LED 5            //Red
@@ -166,6 +171,7 @@ FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16> V_Bus;    //Steering Valve Bus
 
 uint8_t Brand = 1;      //Variable to set brand via serial monitor.
 uint8_t gpsMode = 1;    //Variable to set GPS mode via serial monitor.
+uint8_t CANBUS_ModuleID = 0x1C; //Used for the Module CAN ID
 
 uint32_t Time;                  //Time Arduino has been running
 uint32_t relayTime;             //Time to keep "Button Pressed" from CAN Message
@@ -215,30 +221,40 @@ boolean intendToSteer = 0;        //Do We Intend to Steer?
   uint32_t lastTime = LOOP_TIME;
   uint32_t currentTime = LOOP_TIME;
 
-  //IMU message
-  const uint16_t IMU_DELAY_TIME = 70;    //70ms after steering message, 10hz GPS
-  uint32_t IMU_lastTime = IMU_DELAY_TIME;
-  uint32_t IMU_currentTime = IMU_DELAY_TIME;
-
   //IMU data                            
   const uint16_t GYRO_LOOP_TIME = 20;   //50Hz IMU 
   uint32_t lastGyroTime = GYRO_LOOP_TIME;
+  uint32_t IMU_currentTime;
 
-  bool isTriggered = false, blink;
+  bool blink;
 
   //IMU data
   float roll = 0;
   float pitch = 0;
   float yaw = 0;
 
+  //GPS Data
+  bool sendGPStoISOBUS = true;
+  double pivotLat, pivotLon, fixHeading, pivotAltitude;
+  float utcTime, geoidalGGA;
+  uint8_t fixTypeGGA, satsGGA;
+  float hdopGGA, rtkAgeGGA;
+
+  uint8_t N2K_129029_Data[48];
+
   //Swap BNO08x roll & pitch? - Note this is now sent from AgOpen
 
-  // booleans to see if we are using CMPS or BNO08x
-  bool useCMPS = false;
-  bool useBNO08x = false;
+  //Roomba Vac mode for BNO085 and data
+  #include "BNO_RVC.h"
+  BNO_rvc rvc = BNO_rvc();
+  BNO_rvcData bnoData;
+  elapsedMillis bnoTimer;
+  bool bnoTrigger = false;
+  HardwareSerial* SerialIMU = &Serial5;   //IMU BNO-085
 
-  // Address of CMPS14 shifted right one bit for arduino wire library
-  #define CMPS14_ADDRESS 0x60
+  // booleans to see what mode BNO08x
+  bool useBNO08x = false;
+  bool useBNO08xRVC = false;
 
   // BNO08x address variables to check where it is
   const uint8_t bno08xAddresses[] = {0x4A,0x4B};
@@ -275,10 +291,6 @@ boolean intendToSteer = 0;        //Do We Intend to Steer?
   uint8_t pressureReading;
   uint8_t currentReading;
 
-  //IMU PGN - 211 - 0xD3
-  uint8_t data[] = {0x80,0x81,0x7D,0xD3,8, 0,0,0,0, 0,0,0,0, 15};
-  int16_t dataSize = sizeof(data);
- 
   //EEPROM
   int16_t EEread = 0;
 
@@ -392,29 +404,12 @@ boolean intendToSteer = 0;        //Do We Intend to Steer?
     ; // wait for serial port to connect. Needed for native USB port only
   }*/
   
-    //test if CMPS working
-    uint8_t error;
-    Wire.beginTransmission(CMPS14_ADDRESS);
-    error = Wire.endTransmission();
+    SerialIMU->begin(115200);
+    rvc.begin(SerialIMU);
     
-    if (error == 0)
-    {
-      Serial.println("Error = 0");
-      Serial.print("CMPS14 ADDRESs: 0x");
-      Serial.println(CMPS14_ADDRESS, HEX);
-      Serial.println("CMPS14 Ok.");
-      useCMPS = true;
-    }
-    else 
-    {
-      Serial.println("Error = 4");
-      Serial.println("CMPS not Connected or Found");
-      useCMPS = false;
-    }
+    // Check for i2c BNO08x
+    uint8_t error;
 
-    // Check for BNO08x
-    if(!useCMPS)
-    {
       for(int16_t i = 0; i < nrBNO08xAdresses; i++)
       {
         bno08xAddress = bno08xAddresses[i];
@@ -445,16 +440,33 @@ boolean intendToSteer = 0;        //Do We Intend to Steer?
           }
           else
           {
-            Serial.println("BNO080 not detected at given I2C address.");
+            Serial.println("BNO08x not detected at given I2C address.");
           }
         }
         else 
         {
           Serial.println("Error = 4");
-          Serial.println("BNO08X not Connected or Found"); 
+          Serial.println("i2c BNO08x not Connected or Found"); 
         }
         if (useBNO08x) break;
       }
+
+      if (!useBNO08x)
+      {
+          static elapsedMillis rvcBnoTimer = 0;
+          Serial.println("\r\nChecking for serial BNO08x");
+          while (rvcBnoTimer < 1000)
+          {
+              //check if new bnoData
+              if (rvc.read(&bnoData))
+              {
+                  useBNO08xRVC = true;
+                  Serial.println("Serial BNO08x Good To Go :-)");
+                  imuHandler();
+                  break;
+              }
+          }
+          if (!useBNO08xRVC)  Serial.println("No Serial BNO08x not Connected or Found");
     }
   
     EEPROM.get(0, EEread);     // read identifier
@@ -486,8 +498,6 @@ boolean intendToSteer = 0;        //Do We Intend to Steer?
          
     //----Teensy 4.1 Ethernet--Start---------------------
 
-      Ethernet.begin(mac,0);          // Start Ethernet with IP 0.0.0.0
-  
       delay(500);
   
       if (Ethernet.linkStatus() == LinkOFF) 
@@ -495,6 +505,8 @@ boolean intendToSteer = 0;        //Do We Intend to Steer?
         Serial.println("\r\nEthernet cable is not connected - Who cares we will start ethernet anyway.");
       }  
   
+      Ethernet.begin(mac,0);          // Start Ethernet with IP 0.0.0.0
+
     //grab the ip from EEPROM
       ip[0] = networkAddress.ipOne;
       ip[1] = networkAddress.ipTwo;
@@ -827,7 +839,22 @@ boolean intendToSteer = 0;        //Do We Intend to Steer?
     //--CAN--End-----
 
     //**GPS**
-      if (useCMPS || useBNO08x) Read_IMU();
+      if (useBNO08x)
+      {
+          Read_IMU();
+      }
+      else
+      {
+          //RVC BNO08x
+          if (rvc.read(&bnoData)) useBNO08xRVC = true;
+      }
+
+      if (useBNO08xRVC && bnoTimer > 40 && bnoTrigger)
+      {
+          bnoTrigger = false;
+          imuHandler();   //Get IMU data ready
+      }
+
       if (gpsMode == 1 || gpsMode == 2)
       {
           Forward_GPS();
@@ -842,7 +869,7 @@ boolean intendToSteer = 0;        //Do We Intend to Steer?
         int packetSize = Udp.parsePacket();
         if (packetSize) {
           //Serial.println("UDP Data Avalible"); 
-          udpSteerRecv();
+          udpSteerRecv(packetSize);
         }
 
         if (encEnable)
@@ -859,10 +886,11 @@ boolean intendToSteer = 0;        //Do We Intend to Steer?
 
 //********************************************************************************
 
-void udpSteerRecv()
+void udpSteerRecv(int sizeToRead)
 {
+  if (sizeToRead > 128) sizeToRead = 128;
   IPAddress src_ip = Udp.remoteIP();
-  Udp.read(udpData, UDP_TX_PACKET_MAX_SIZE);
+  Udp.read(udpData, sizeToRead);
 
   if (udpData[0] == 0x80 && udpData[1] == 0x81 && udpData[2] == 0x7F) //Data
   {
@@ -955,9 +983,6 @@ void udpSteerRecv()
       // Stop sending the helloAgIO message
       helloCounter = 0;
 
-      IMU_lastTime = millis();
-      isTriggered = true;
-
       if (blink)
         digitalWrite(13, HIGH);
       else digitalWrite(13, LOW);
@@ -982,7 +1007,7 @@ void udpSteerRecv()
        Udp.write(helloFromAutoSteer, sizeof(helloFromAutoSteer));
        Udp.endPacket();
            
-       if (useBNO08x || useCMPS)
+       if (useBNO08x || useBNO08xRVC)
        {
            Udp.beginPacket(ipDestination, 9999);
            Udp.write(helloFromIMU, sizeof(helloFromIMU));
@@ -1095,6 +1120,39 @@ void udpSteerRecv()
       pgn=dataLength=0; 
        
     }//end FB
+
+    else if (udpData[3] == 0xD0)  //Corrected GPS Data
+    {
+
+        uint32_t encodedAngle;
+        uint16_t encodedInt16;
+
+        encodedAngle = ((uint32_t)(udpData[5] | udpData[6] << 8 | udpData[7] << 16 | udpData[8] << 24));
+        pivotLat = (((double)encodedAngle * 0.0000001) - 210);
+
+        encodedAngle = ((uint32_t)(udpData[9] | udpData[10] << 8 | udpData[11] << 16 | udpData[12] << 24));
+        pivotLon = (((double)encodedAngle * 0.0000001) - 210);
+
+        encodedInt16 = ((uint16_t)(udpData[13] | udpData[14] << 8));
+        fixHeading = ((double)encodedInt16 / 128);
+
+        encodedInt16 = ((uint16_t)(udpData[15] | udpData[16] << 8));
+        pivotAltitude = ((double)encodedInt16 * 0.01);
+
+        static int GPS_5hz = 0;
+
+        if (sendGPStoISOBUS)
+        {
+            if (GPS_5hz > 4)
+            {
+                GPS_5hz = 0;
+                sendISOBUS_65267_65256();
+            }
+
+            GPS_5hz++;
+        }
+
+    }//end D0
 
     else if (udpData[3] == 201)
     {

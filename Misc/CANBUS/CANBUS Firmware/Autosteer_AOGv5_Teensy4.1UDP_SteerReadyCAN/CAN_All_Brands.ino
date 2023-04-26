@@ -22,31 +22,39 @@ if (Brand == 0){
   V_Bus.setFIFOFilter(0, 0x0CAC1E13, EXT);  //Claas Curve Data & Valve State Message
   V_Bus.setFIFOFilter(1, 0x18EF1CD2, EXT);  //Claas Engage Message
   V_Bus.setFIFOFilter(2, 0x1CFFE6D2, EXT);  //Claas Work Message (CEBIS Screen MR Models)
+  CANBUS_ModuleID = 0x1E;
   }
 if (Brand == 1){
   V_Bus.setFIFOFilter(0, 0x0CAC1C13, EXT);  //Valtra Curve Data & Valve State Message
   V_Bus.setFIFOFilter(1, 0x18EF1C32, EXT);  //Valtra Engage Message
+  CANBUS_ModuleID = 0x1C;
   }  
 if (Brand == 2){
   V_Bus.setFIFOFilter(0, 0x0CACAA08, EXT);  //CaseIH Curve Data & Valve State Message
   V_Bus.setFIFOUserFilter(1, 0x0CEFAA08, 0x0CEF08AA, 0x0000FF00, EXT);
+  CANBUS_ModuleID = 0xAA;
   }   
 if (Brand == 3){
   V_Bus.setFIFOFilter(0, 0x0CEF2CF0, EXT);  //Fendt Curve Data & Valve State Message
+  CANBUS_ModuleID = 0x2C;
   }   
 if (Brand == 4){
   V_Bus.setFIFOFilter(0, 0x0CACAB13, EXT);  //JCB Curve Data & Valve State Message
   V_Bus.setFIFOFilter(1, 0x18EFAB27, EXT);  //JCB engage message
+  CANBUS_ModuleID = 0xAB;
   }
 if (Brand == 5){
   V_Bus.setFIFOFilter(0, 0x0CEF2CF0, EXT);  //FendtONE Curve Data & Valve State Message
+  CANBUS_ModuleID = 0x2C;
   }   
 if (Brand == 6){
   V_Bus.setFIFOFilter(0, 0x0CACF013, EXT);  //Lindner Curve Data & Valve State Message
+  CANBUS_ModuleID = 0xF0;
   }
 if (Brand == 7){
   V_Bus.setFIFOFilter(0, 0x0CAC1C13, EXT);  //AgOpenGPS Curve Data & Valve State Message
   V_Bus.setFIFOFilter(1, 0x19EF1C13, EXT);  //AgOpenGPS error message
+  CANBUS_ModuleID = 0x1C;
   }   
   
 // Claim V_Bus Address 
@@ -78,17 +86,6 @@ delay(500);
   ISO_Bus.begin();
   ISO_Bus.setBaudRate(250000);
   ISO_Bus.enableFIFO();
-  ISO_Bus.setFIFOFilter(REJECT_ALL);
-//Put filters into here to let them through (All blocked by above line)
-  ISO_Bus.setFIFOFilter(0,0x0CFE45F0, EXT);  //ISOBUS Rear Hitch Infomation
-  
-if (Brand == 3){
-  ISO_Bus.setFIFOFilter(1,0x18EF2CF0, EXT);  //Fendt Engage Message
-  } 
-
-if (Brand == 5){
-  ISO_Bus.setFIFOFilter(1,0x18EF2CF0, EXT);  //Fendt Engage Message
-  }  
 
 if (Brand >= 0 && Brand <= 7){
   CAN_message_t msgISO;
@@ -133,7 +130,8 @@ if (Brand == 2){
   K_Bus.setFIFOFilter(1, 0x18FE4523, EXT);  //CaseIH Rear Hitch Infomation
   } 
   
-  delay (500); 
+  delay (300); 
+
 } //End CAN SETUP
 
 
@@ -494,10 +492,19 @@ void ISO_Receive()
     CAN_message_t ISOBusReceiveData;
     if (ISO_Bus.read(ISOBusReceiveData)) 
     { 
+      Time = millis();
       //Put code here to sort a message out from ISO-Bus if needed 
   
+      unsigned long PGN;
+      byte priority;
+      byte srcaddr;
+      byte destaddr;
+
+      j1939_decode(ISOBusReceiveData.id, &PGN, &priority, &srcaddr, &destaddr);
+
       //**Work Message**
-      if (ISOBusReceiveData.id == 0x0CFE45F0){
+      if (PGN == 65093) //Rear hitch data
+      {
         ISORearHitch = (ISOBusReceiveData.buf[0]); 
         if(Brand != 7) pressureReading = ISORearHitch;
         if (steerConfig.PressureSensor == 1 && ISORearHitch < steerConfig.PulseCountMax && Brand != 7) workCAN = 1; 
@@ -509,7 +516,6 @@ void ISO_Receive()
           if (ISOBusReceiveData.id == 0x18EF2CF0)   //**Fendt Engage Message**  
           {
             if ((ISOBusReceiveData.buf[0])== 0x0F && (ISOBusReceiveData.buf[1])== 0x60 && (ISOBusReceiveData.buf[2])== 0x01){   
-              Time = millis();
 #ifdef isAllInOneBoard
               digitalWrite(AUTOSTEER_ACTIVE_LED, HIGH);
               digitalWrite(AUTOSTEER_STANDBY_LED, LOW);
@@ -527,6 +533,10 @@ void ISO_Receive()
             Serial.print(", ISO-Bus"); 
             Serial.print(", MB: "); Serial.print(ISOBusReceiveData.mb);
             Serial.print(", ID: 0x"); Serial.print(ISOBusReceiveData.id, HEX );
+            Serial.print(", PGN: "); Serial.print(PGN);
+            Serial.print(", Priority: "); Serial.print(priority);
+            Serial.print(", SA: "); Serial.print(srcaddr);
+            Serial.print(", DA: "); Serial.print(destaddr);
             Serial.print(", EXT: "); Serial.print(ISOBusReceiveData.flags.extended );
             Serial.print(", LEN: "); Serial.print(ISOBusReceiveData.len);
             Serial.print(", DATA: ");
@@ -535,6 +545,14 @@ void ISO_Receive()
               Serial.print(ISOBusReceiveData.buf[i]); Serial.print(", ");
             }
   
+            if (PGN == 44032) Serial.print("= Curvature Data");
+            else if(PGN == 65093) Serial.print("= Rear Hitch Data");
+            else if (PGN == 65096) Serial.print("= Wheel Speed, Direction, Distance");
+            else if (PGN == 65267) Serial.print("= GPS Vechile Pos");
+            else if (PGN == 65256) Serial.print("= GPS Vechile Heading/Speed");
+            else if (PGN == 65254) Serial.print("= GPS Time");
+            else if (PGN == 129029) Serial.print("= GPS Info (GGA)");
+
             Serial.println("");
         }//End Show Data
   
