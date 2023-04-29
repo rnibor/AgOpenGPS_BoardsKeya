@@ -56,7 +56,7 @@ void relPosDecode() {
     {
         rollDual *= 0.9;
         digitalWrite(GPSGREEN_LED, blink);  //Flash the green GPS LED
-        dualReadyRelPos = false;   //RelPos ready is true so PAOGI will send when the GGA is also ready
+        dualReadyRelPos = true;   //RelPos ready is true so PAOGI will send when the GGA is also ready
     }
 
     //if (carrSoln == 2)
