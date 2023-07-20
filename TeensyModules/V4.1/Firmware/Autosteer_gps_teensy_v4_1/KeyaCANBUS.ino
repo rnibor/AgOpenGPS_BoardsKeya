@@ -12,8 +12,10 @@
 //Slow clockwise	0x23 0x00 0x20 0x01 0xFE 0x0C 0xFF 0xFF (0xfe0c signed dec is - 500)
 //Slow anti - clockwise	0x23 0x00 0x20 0x01 0x01 0xf4 0x00 0x00 (0x01f4 signed dec is 500)
 
-uint8_t KeyaSteerPGN[] = { 0x23, 0x00, 0x20, 0x01, 0,0,0,0 }; // save us populating the first 4 bytes each time
+uint8_t KeyaSteerPGN[] = { 0x23, 0x00, 0x20, 0x01, 0,0,0,0 };
+// save us populating the first 4 bytes each time
 // this is just a reminder
+
 uint8_t KeyaHeartbeat[] = { 0, 0, 0, 0, 0, 0, 0, 0, };
 uint8_t keyaCurrent[] = { 0x60, 0x12, 0x21, 0x01 };
 
@@ -26,11 +28,12 @@ void CAN_Setup() {
 	Keya_Bus.begin();
 	Keya_Bus.setBaudRate(250000);
 	// Dedicated bus, zero chat from others. No need for filters
-	// claim an address
 	CAN_message_t msgV;
 	msgV.id = KeyaPGN;
 	msgV.flags.extended = true;
 	msgV.len = 8;
+	// claim an address. Don't think I need to do this tho
+	// anyway, just piched this from Claas address
 	msgV.buf[0] = 0x00;
 	msgV.buf[1] = 0x00;
 	msgV.buf[2] = 0xC0;
@@ -40,7 +43,7 @@ void CAN_Setup() {
 	msgV.buf[6] = 0x02;
 	msgV.buf[7] = 0x20;
 	Keya_Bus.write(msgV);
-	delay(1000); // take a breath
+	delay(1000);
 }
 
 bool isPatternMatch(const CAN_message_t& message, const uint8_t* pattern, size_t patternSize) {
