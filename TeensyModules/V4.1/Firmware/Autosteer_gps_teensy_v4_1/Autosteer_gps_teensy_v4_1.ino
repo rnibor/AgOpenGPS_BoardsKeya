@@ -23,7 +23,11 @@
 // CFG-UART1-BAUDRATE 460800
 // Serial 1 Out - UBX-NAV-RELPOSNED
 // CFG-UART2-BAUDRATE 460800
-// Serial 2 In RTCM
+// Serial 2 In RTCMB
+
+
+// lansalot's attempt at Keya integration
+// (he apologizes in advance)
 
 /************************* User Settings *************************/
 // Serial Ports
@@ -126,6 +130,8 @@ byte velocityPWM_Pin = 36;      // Velocity (MPH speed) PWM pin
 #include "zNMEAParser.h"
 #include <Wire.h>
 #include "BNO08x_AOG.h"
+#include <FlexCAN_T4.h>
+FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_256> Keya_Bus;    
 
 //Used to set CPU speed
 extern "C" uint32_t set_arm_clock(uint32_t frequency); // required prototype
@@ -339,6 +345,9 @@ void setup()
   Serial.println(useCMPS);
   Serial.print("useBNO08x = ");
   Serial.println(useBNO08x);
+
+  Serial.print("Right... time for some CANBUS! And, we're dedicated to Keya here");
+  CAN_Setup();
 
   Serial.println("\r\nEnd setup, waiting for GPS...\r\n");
 }
