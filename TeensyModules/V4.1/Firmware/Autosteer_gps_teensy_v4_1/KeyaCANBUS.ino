@@ -21,9 +21,6 @@ uint8_t keyaCurrent[] = { 0x60, 0x12, 0x21, 0x01 };
 
 uint64_t KeyaPGN = 0x06000001;
 
-boolean intendToSteer = 0;
-boolean engageCAN = 0;
-
 void CAN_Setup() {
 	Keya_Bus.begin();
 	Keya_Bus.setBaudRate(250000);
@@ -33,7 +30,7 @@ void CAN_Setup() {
 	msgV.flags.extended = true;
 	msgV.len = 8;
 	// claim an address. Don't think I need to do this tho
-	// anyway, just piched this from Claas address
+	// anyway, just pinched this from Claas address. Will see if we can ditch it TODO etc
 	msgV.buf[0] = 0x00;
 	msgV.buf[1] = 0x00;
 	msgV.buf[2] = 0xC0;
@@ -50,7 +47,7 @@ bool isPatternMatch(const CAN_message_t& message, const uint8_t* pattern, size_t
 	return memcmp(message.buf, pattern, patternSize) == 0;
 }
 
-void Disable_Steer() {
+void disableKeyaSteer() {
 	CAN_message_t KeyaBusSendData;
 	KeyaBusSendData.id = KeyaPGN;
 	KeyaBusSendData.flags.extended = true;
@@ -65,7 +62,7 @@ void Disable_Steer() {
 	KeyaBusSendData.buf[7] = 0;
 	Keya_Bus.write(KeyaBusSendData);
 }
-void Enable_Steer() {
+void enableKeyaSteer() {
 	CAN_message_t KeyaBusSendData;
 	KeyaBusSendData.id = KeyaPGN;
 	KeyaBusSendData.flags.extended = true;
@@ -81,11 +78,13 @@ void Enable_Steer() {
 	Keya_Bus.write(KeyaBusSendData);
 }
 
-void KeyaBus_SendSteer(char KeyaDirection) {
-	if (intendToSteer == 0 || !engageCAN) {
-		Disable_Steer();
+void SteerKeya(int steerSpeed) {
+	if (pwmDrive == 0) {
+		disableKeyaSteer();
 		return; // don't need to go any further, if we're disabling, we're disabling
 	}
+	// TODO kinda presuming that pwmDrive will be set to zero if we've passed max steer angle?
+
 	CAN_message_t KeyaBusSendData;
 	KeyaBusSendData.id = KeyaPGN;
 	KeyaBusSendData.flags.extended = true;
@@ -94,25 +93,22 @@ void KeyaBus_SendSteer(char KeyaDirection) {
 	KeyaBusSendData.buf[1] = 0x00;
 	KeyaBusSendData.buf[2] = 0x20;
 	KeyaBusSendData.buf[3] = 0x01;
-	// TODO Hardcoded relatively slow speed, let's not kill ourselves to start. This should be from PWM tho
-	// Max speed is -1999 to 1999 tho
-	// speed is related to direction too - clockwise, speed should be negative, anti-clock, should be positive
-	// TODO placeholder till you work out where direction comes from
-	if (KeyaDirection == 'L') {
-		KeyaBusSendData.buf[4] = 0x01;
-		KeyaBusSendData.buf[5] = 0xF4;
+	if (steerSpeed < 0) {
+		KeyaBusSendData.buf[4] = 0xfc; // TODO take PWM in instead for speed (this is -1000)
+		KeyaBusSendData.buf[5] = 0x18;
+		KeyaBusSendData.buf[6] = 0xff;
+		KeyaBusSendData.buf[7] = 0xff;
+	}
+	else {
+		KeyaBusSendData.buf[4] = 0x03; // TODO take PWM in instead for speed and remember to negate pwmDrive (this is 1000)
+		KeyaBusSendData.buf[5] = 0xe8;
 		KeyaBusSendData.buf[6] = 0;
 		KeyaBusSendData.buf[7] = 0;
 	}
-	else {
-		KeyaBusSendData.buf[4] = 0xFE;
-		KeyaBusSendData.buf[5] = 0x0C;
-		KeyaBusSendData.buf[6] = 0xFF;
-		KeyaBusSendData.buf[7] = 0xFF;
-	}
 	Keya_Bus.write(KeyaBusSendData);
-	Enable_Steer(); // TODO this might be a little back to front, let's see. In SavvyCAN, this appeared to play the "current" steer command
+	enableKeyaSteer();
 }
+
 
 void KeyaBus_Receive() {
 	CAN_message_t KeyaBusReceiveData;

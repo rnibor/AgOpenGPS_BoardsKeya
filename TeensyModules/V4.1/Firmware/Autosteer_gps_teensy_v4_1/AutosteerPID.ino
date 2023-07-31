@@ -36,7 +36,7 @@ void calcSteeringPID(void)
         // Calculations below make sure pwmDrive values are between 65 and 190
         // This means they are always positive, so in motorDrive, no need to check for
         // steerConfig.isDanfoss anymore
-        pwmDrive = pwmDrive >> 2; // Devide by 4
+        pwmDrive = pwmDrive >> 2; // Divide by 4
         pwmDrive += 128;          // add Center Pos.
 
         // pwmDrive now lies in the range [65 ... 190], which would be great for an ideal opamp
@@ -53,43 +53,50 @@ void calcSteeringPID(void)
 
 void motorDrive(void)
 {
-  // Used with Cytron MD30C Driver
-  // Steering Motor
-  // Dir + PWM Signal
-  if (steerConfig.CytronDriver)
-  {
-    // Cytron MD30C Driver Dir + PWM Signal
-    if (pwmDrive >= 0)
-    {
-      bitSet(PORTD, 4);  //set the correct direction
-    }
-    else
-    {
-      bitClear(PORTD, 4);
-      pwmDrive = -1 * pwmDrive;
-    }
+	// Used with Cytron MD30C Driver
+	// Steering Motor
+	// Dir + PWM Signal
+	if (steerConfig.IsKeya) {
+		if (pwmDrive == 0) {
+			// send disable
+			disableKeyaSteer();
+		}
+		SteerKeya(pwmDrive);
+	}
+	else if (steerConfig.CytronDriver)
+	{
+		// Cytron MD30C Driver Dir + PWM Signal
+		if (pwmDrive >= 0)
+		{
+			bitSet(PORTD, 4);  //set the correct direction
+		}
+		else
+		{
+			bitClear(PORTD, 4);
+			pwmDrive = -1 * pwmDrive;
+		}
 
-    //write out the 0 to 255 value
-    analogWrite(PWM1_LPWM, pwmDrive);
-    pwmDisplay = pwmDrive;
-  }
-  else
-  {
-    // IBT 2 Driver Dir1 connected to BOTH enables
-    // PWM Left + PWM Right Signal
+		//write out the 0 to 255 value
+		analogWrite(PWM1_LPWM, pwmDrive);
+		pwmDisplay = pwmDrive;
+	}
+	else
+	{
+		// IBT 2 Driver Dir1 connected to BOTH enables
+		// PWM Left + PWM Right Signal
 
-    if (pwmDrive > 0)
-    {
-      analogWrite(PWM2_RPWM, 0);//Turn off before other one on
-      analogWrite(PWM1_LPWM, pwmDrive);
-    }
-    else
-    {
-      pwmDrive = -1 * pwmDrive;
-      analogWrite(PWM1_LPWM, 0);//Turn off before other one on
-      analogWrite(PWM2_RPWM, pwmDrive);
-    }
+		if (pwmDrive > 0)
+		{
+			analogWrite(PWM2_RPWM, 0);//Turn off before other one on
+			analogWrite(PWM1_LPWM, pwmDrive);
+		}
+		else
+		{
+			pwmDrive = -1 * pwmDrive;
+			analogWrite(PWM1_LPWM, 0);//Turn off before other one on
+			analogWrite(PWM2_RPWM, pwmDrive);
+		}
 
-    pwmDisplay = pwmDrive;
-  }
+		pwmDisplay = pwmDrive;
+	}
 }
