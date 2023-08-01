@@ -133,6 +133,9 @@ byte velocityPWM_Pin = 36;      // Velocity (MPH speed) PWM pin
 #include <Wire.h>
 #include "BNO08x_AOG.h"
 #include <FlexCAN_T4.h>
+// CRX2/CTX2 on Teensy are CAN2 on board
+// CRX3/CTX3 on Teensy are CAN1 on board
+// Seems to work for CAN2, not sure why it didn't for CAN1
 FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_256> Keya_Bus;    // TODO are you sure this is right for PCB4.1? Should be OK for PCB2.4
 
 //Used to set CPU speed

@@ -77,8 +77,8 @@ void disableKeyaSteer() {
 	KeyaBusSendData.buf[7] = 0;
 	Keya_Bus.write(KeyaBusSendData);
 	//if (debugKeya) Serial.println("Disabled Keya motor");
-
 }
+
 void enableKeyaSteer() {
 	CAN_message_t KeyaBusSendData;
 	KeyaBusSendData.id = KeyaPGN;
@@ -97,13 +97,14 @@ void enableKeyaSteer() {
 }
 
 void SteerKeya(int steerSpeed) {
-  // int someInteger2 =  map(pwmDrive, -255, 255, -995, 998);
+  int actualSpeed =  map(steerSpeed, -255, 255, -995, 998);
 	if (pwmDrive == 0) {
 		disableKeyaSteer();
 		//if (debugKeya) Serial.println("pwmDrive zero - disabling");
 		return; // don't need to go any further, if we're disabling, we're disabling
 	}
 	Serial.println("told to steer, with " + String(steerSpeed) + " so....");
+  Serial.println("I converted that to speed " + String(actualSpeed));
 
 	CAN_message_t KeyaBusSendData;
 	KeyaBusSendData.id = KeyaPGN;
@@ -114,18 +115,22 @@ void SteerKeya(int steerSpeed) {
 	KeyaBusSendData.buf[2] = 0x20;
 	KeyaBusSendData.buf[3] = 0x01;
 	if (steerSpeed < 0) {
-		KeyaBusSendData.buf[4] = 0xfc; // TODO take PWM in instead for speed (this is -1000)
-		KeyaBusSendData.buf[5] = 0x18;
+		//KeyaBusSendData.buf[4] = 0xfe; // TODO take PWM in instead for speed (this is -1000)
+		//KeyaBusSendData.buf[5] = 0x0c;
+    KeyaBusSendData.buf[4] = highByte(actualSpeed); // TODO take PWM in instead for speed (this is -1000)
+    KeyaBusSendData.buf[5] = lowByte(actualSpeed);
 		KeyaBusSendData.buf[6] = 0xff;
 		KeyaBusSendData.buf[7] = 0xff;
-		if (debugKeya) Serial.println("pwmDrive < zero - clockwise - steerSpeed " + steerSpeed);
+		if (debugKeya) Serial.println("pwmDrive < zero - clockwise - steerSpeed " + String(steerSpeed));
 	}
 	else {
-		KeyaBusSendData.buf[4] = 0x03; // TODO take PWM in instead for speed and remember to negate pwmDrive (this is 1000)
-		KeyaBusSendData.buf[5] = 0xe8;
-		KeyaBusSendData.buf[6] = 0;
-		KeyaBusSendData.buf[7] = 0;
-		if (debugKeya) Serial.println("pwmDrive > zero - anti-clockwise - steerSpeed " + steerSpeed);
+		KeyaBusSendData.buf[4] = 0x01; // TODO take PWM in instead for speed and remember to negate pwmDrive (this is 1000)
+		KeyaBusSendData.buf[5] = 0xf4;
+    KeyaBusSendData.buf[4] = highByte(actualSpeed);
+    KeyaBusSendData.buf[5] = lowByte(actualSpeed);
+		KeyaBusSendData.buf[6] = 0x00;
+		KeyaBusSendData.buf[7] = 0x00;
+		if (debugKeya) Serial.println("pwmDrive > zero - anticlock-clockwise - steerSpeed " + String(steerSpeed));
 	}
 	Keya_Bus.write(KeyaBusSendData);
 	enableKeyaSteer();
