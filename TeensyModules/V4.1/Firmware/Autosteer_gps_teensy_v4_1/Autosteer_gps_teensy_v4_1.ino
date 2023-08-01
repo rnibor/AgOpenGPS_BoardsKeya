@@ -58,7 +58,7 @@ uint32_t baudrates[]
 
 const uint32_t nrBaudrates = sizeof(baudrates)/sizeof(baudrates[0]);
 
-int16_t KeyaCurrentSensorReading = 0;
+int8_t KeyaCurrentSensorReading = 0;
 
 #define ImuWire Wire        //SCL=19:A5 SDA=18:A4
 #define RAD_TO_DEG_X_10 572.95779513082320876798154814105
@@ -359,6 +359,7 @@ void setup()
 
 void loop()
 {
+    KeyaBus_Receive();
     if (GGA_Available == false && !passThroughGPS && !passThroughGPS2)
     {
         if (systick_millis_count - PortSwapTime >= 10000)

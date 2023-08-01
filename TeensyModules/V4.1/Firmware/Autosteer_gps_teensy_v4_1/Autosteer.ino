@@ -356,6 +356,11 @@ void autosteerLoop()
 		{
 			if (steerConfig.IsKeya) {
 				sensorReading = KeyaCurrentSensorReading;
+				if (KeyaCurrentSensorReading >= steerConfig.PulseCountMax) {
+					steerSwitch = 1; // reset values like it turned off
+					currentState = 1;
+					previous = 0;
+				}
 			}
 			else {
 				sensorSample = (float)analogRead(CURRENT_SENSOR_PIN);

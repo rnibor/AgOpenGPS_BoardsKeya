@@ -13,9 +13,11 @@
 //Slow anti - clockwise	0x23 0x00 0x20 0x01 0x01 0xf4 0x00 0x00 (0x01f4 signed dec is 500)
 
 uint8_t KeyaSteerPGN[] = { 0x23, 0x00, 0x20, 0x01, 0,0,0,0 }; // last 4 bytes change ofc
-uint8_t keyaCurrentRequest[] = { 0x40, 0x00, 0x21, 0x01, 0x00, 0x00, 0x00, 0x00 };
-uint8_t keyaCurrentResponse[] = { 0x60, 0x12, 0x21, 0x01 };
 uint8_t KeyaHeartbeat[] = { 0, 0, 0, 0, 0, 0, 0, 0, };
+
+// templates for matching responses of interest
+uint8_t keyaCurrentResponse[] = { 0x60, 0x12, 0x21, 0x01 };
+
 uint64_t KeyaPGN = 0x06000001;
 
 const bool debugKeya = true;
@@ -34,32 +36,27 @@ void CAN_Setup() {
 	Keya_Bus.begin();
 	Keya_Bus.setBaudRate(250000);
 	// Dedicated bus, zero chat from others. No need for filters
-	CAN_message_t msgV;
-	msgV.id = KeyaPGN;
-	msgV.flags.extended = true;
-	msgV.len = 8;
-	// claim an address. Don't think I need to do this tho
-	// anyway, just pinched this from Claas address. Will see if we can ditch it TODO etc
-	msgV.buf[0] = 0x00;
-	msgV.buf[1] = 0x00;
-	msgV.buf[2] = 0xC0;
-	msgV.buf[3] = 0x0C;
-	msgV.buf[4] = 0x00;
-	msgV.buf[5] = 0x17;
-	msgV.buf[6] = 0x02;
-	msgV.buf[7] = 0x20;
-	Keya_Bus.write(msgV);
+//	CAN_message_t msgV;
+//	msgV.id = KeyaPGN;
+//	msgV.flags.extended = true;
+//	msgV.len = 8;
+//	// claim an address. Don't think I need to do this tho
+//	// anyway, just pinched this from Claas address. TODO, looks like we can do without, ditch this
+//	msgV.buf[0] = 0x00;
+//	msgV.buf[1] = 0x00;
+//	msgV.buf[2] = 0xC0;
+//	msgV.buf[3] = 0x0C;
+//	msgV.buf[4] = 0x00;
+//	msgV.buf[5] = 0x17;
+//	msgV.buf[6] = 0x02;
+//	msgV.buf[7] = 0x20;
+//	Keya_Bus.write(msgV);
 	delay(1000);
 	if (debugKeya) Serial.println("Initialised Keya CANBUS");
 }
 
 bool isPatternMatch(const CAN_message_t& message, const uint8_t* pattern, size_t patternSize) {
 	return memcmp(message.buf, pattern, patternSize) == 0;
-}
-
-void requestKeyaCurrent() {
-	keyaSend(keyaCurrentRequest);
-	if (debugKeya) Serial.println("Requested Keya Curre!nt");
 }
 
 void disableKeyaSteer() {
@@ -97,14 +94,14 @@ void enableKeyaSteer() {
 }
 
 void SteerKeya(int steerSpeed) {
-  int actualSpeed =  map(steerSpeed, -255, 255, -995, 998);
+	int actualSpeed = map(steerSpeed, -255, 255, -995, 998);
 	if (pwmDrive == 0) {
 		disableKeyaSteer();
 		//if (debugKeya) Serial.println("pwmDrive zero - disabling");
 		return; // don't need to go any further, if we're disabling, we're disabling
 	}
-	Serial.println("told to steer, with " + String(steerSpeed) + " so....");
-  Serial.println("I converted that to speed " + String(actualSpeed));
+	if (debugKeya) Serial.println("told to steer, with " + String(steerSpeed) + " so....");
+	if (debugKeya) Serial.println("I converted that to speed " + String(actualSpeed));
 
 	CAN_message_t KeyaBusSendData;
 	KeyaBusSendData.id = KeyaPGN;
@@ -115,19 +112,15 @@ void SteerKeya(int steerSpeed) {
 	KeyaBusSendData.buf[2] = 0x20;
 	KeyaBusSendData.buf[3] = 0x01;
 	if (steerSpeed < 0) {
-		//KeyaBusSendData.buf[4] = 0xfe; // TODO take PWM in instead for speed (this is -1000)
-		//KeyaBusSendData.buf[5] = 0x0c;
-    KeyaBusSendData.buf[4] = highByte(actualSpeed); // TODO take PWM in instead for speed (this is -1000)
-    KeyaBusSendData.buf[5] = lowByte(actualSpeed);
+		KeyaBusSendData.buf[4] = highByte(actualSpeed); // TODO take PWM in instead for speed (this is -1000)
+		KeyaBusSendData.buf[5] = lowByte(actualSpeed);
 		KeyaBusSendData.buf[6] = 0xff;
 		KeyaBusSendData.buf[7] = 0xff;
 		if (debugKeya) Serial.println("pwmDrive < zero - clockwise - steerSpeed " + String(steerSpeed));
 	}
 	else {
-		KeyaBusSendData.buf[4] = 0x01; // TODO take PWM in instead for speed and remember to negate pwmDrive (this is 1000)
-		KeyaBusSendData.buf[5] = 0xf4;
-    KeyaBusSendData.buf[4] = highByte(actualSpeed);
-    KeyaBusSendData.buf[5] = lowByte(actualSpeed);
+		KeyaBusSendData.buf[4] = highByte(actualSpeed);
+		KeyaBusSendData.buf[5] = lowByte(actualSpeed);
 		KeyaBusSendData.buf[6] = 0x00;
 		KeyaBusSendData.buf[7] = 0x00;
 		if (debugKeya) Serial.println("pwmDrive > zero - anticlock-clockwise - steerSpeed " + String(steerSpeed));
@@ -149,24 +142,31 @@ void KeyaBus_Receive() {
 			//		is that accurate enough for us?
 			// 6-7 - Control_Close (error code)
 			// TODO Yeah, if we ever see something here, fire off a disable, refuse to engage autosteer or..?
-			int16_t current = KeyaBusReceiveData.buf[4];
-			if (debugKeya) Serial.println("Heartbeat current is " + current);
+			//KeyaCurrentSensorReading = abs((int16_t)((KeyaBusReceiveData.buf[5] << 8) | KeyaBusReceiveData.buf[4]));
+			//if (KeyaCurrentSensorReading > 255) KeyaCurrentSensorReading -= 255;
+			if (KeyaBusReceiveData.buf[4] == 0xFF) {
+				KeyaCurrentSensorReading = (256 - KeyaBusReceiveData.buf[5]) * 20;
+			}
+			else {
+				KeyaCurrentSensorReading = KeyaBusReceiveData.buf[5] * 20;
+			}
+			//if (debugKeya) Serial.println("Heartbeat current is " + String(KeyaCurrentSensorReading));
 		}
 
 		// response from most commands 0x05800001
 		// could have been separate PGNs, but oh no...
 
-		if (KeyaBusReceiveData.id == 0x05800001) {
-			// response to current request (this is also in heartbeat)
-			if (isPatternMatch(KeyaBusReceiveData, keyaCurrentResponse, sizeof(keyaCurrentResponse))) {
-				// Current is unsigned float in [4]
-				// set the motor current variable, when you find out what that is
-				KeyaCurrentSensorReading = KeyaBusReceiveData.buf[4];
-				if (debugKeya) Serial.println("Returned current is " + KeyaCurrentSensorReading);
-			}
-			else if (1 == 0) {
-				// placeholder for more checks
-			}
-		}
+		//if (KeyaBusReceiveData.id == 0x05800001) {
+		//	// response to current request (this is also in heartbeat)
+		//	if (isPatternMatch(KeyaBusReceiveData, keyaCurrentResponse, sizeof(keyaCurrentResponse))) {
+		//		// Current is unsigned float in [4]
+		//		// set the motor current variable, when you find out what that is
+		//		KeyaCurrentSensorReading = KeyaBusReceiveData.buf[4];
+		//		if (debugKeya) Serial.println("Returned current is " + KeyaCurrentSensorReading);
+		//	}
+		//	else if (1 == 0) {
+		//		// placeholder for more checks
+		//	}
+		//}
 	}
 }
