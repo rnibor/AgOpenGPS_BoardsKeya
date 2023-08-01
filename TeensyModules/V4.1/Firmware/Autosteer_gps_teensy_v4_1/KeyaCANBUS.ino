@@ -12,14 +12,23 @@
 //Slow clockwise	0x23 0x00 0x20 0x01 0xFE 0x0C 0xFF 0xFF (0xfe0c signed dec is - 500)
 //Slow anti - clockwise	0x23 0x00 0x20 0x01 0x01 0xf4 0x00 0x00 (0x01f4 signed dec is 500)
 
-uint8_t KeyaSteerPGN[] = { 0x23, 0x00, 0x20, 0x01, 0,0,0,0 };
-// save us populating the first 4 bytes each time
-// this is just a reminder
-
+uint8_t KeyaSteerPGN[] = { 0x23, 0x00, 0x20, 0x01, 0,0,0,0 }; // last 4 bytes change ofc
+uint8_t keyaCurrentRequest[] = { 0x40, 0x00, 0x21, 0x01, 0x00, 0x00, 0x00, 0x00 };
+uint8_t keyaCurrentResponse[] = { 0x60, 0x12, 0x21, 0x01 };
 uint8_t KeyaHeartbeat[] = { 0, 0, 0, 0, 0, 0, 0, 0, };
-uint8_t keyaCurrent[] = { 0x60, 0x12, 0x21, 0x01 };
-
 uint64_t KeyaPGN = 0x06000001;
+
+const bool debugKeya = true;
+
+void keyaSend(uint8_t data[]) {
+	//TODO Use this optimisation function once we're happy things are moving the right way
+	CAN_message_t KeyaBusSendData;
+	KeyaBusSendData.id = KeyaPGN;
+	KeyaBusSendData.flags.extended = true;
+	KeyaBusSendData.len = 8;
+	memcpy(KeyaBusSendData.buf, data, sizeof(data));
+	Keya_Bus.write(KeyaBusSendData);
+}
 
 void CAN_Setup() {
 	Keya_Bus.begin();
@@ -41,10 +50,16 @@ void CAN_Setup() {
 	msgV.buf[7] = 0x20;
 	Keya_Bus.write(msgV);
 	delay(1000);
+	if (debugKeya) Serial.println("Initialised Keya CANBUS");
 }
 
 bool isPatternMatch(const CAN_message_t& message, const uint8_t* pattern, size_t patternSize) {
 	return memcmp(message.buf, pattern, patternSize) == 0;
+}
+
+void requestKeyaCurrent() {
+	keyaSend(keyaCurrentRequest);
+	if (debugKeya) Serial.println("Requested Keya Curre!nt");
 }
 
 void disableKeyaSteer() {
@@ -61,6 +76,8 @@ void disableKeyaSteer() {
 	KeyaBusSendData.buf[6] = 0;
 	KeyaBusSendData.buf[7] = 0;
 	Keya_Bus.write(KeyaBusSendData);
+	//if (debugKeya) Serial.println("Disabled Keya motor");
+
 }
 void enableKeyaSteer() {
 	CAN_message_t KeyaBusSendData;
@@ -76,14 +93,17 @@ void enableKeyaSteer() {
 	KeyaBusSendData.buf[6] = 0;
 	KeyaBusSendData.buf[7] = 0;
 	Keya_Bus.write(KeyaBusSendData);
+	if (debugKeya) Serial.println("Enabled Keya motor");
 }
 
 void SteerKeya(int steerSpeed) {
+  // int someInteger2 =  map(pwmDrive, -255, 255, -995, 998);
 	if (pwmDrive == 0) {
 		disableKeyaSteer();
+		//if (debugKeya) Serial.println("pwmDrive zero - disabling");
 		return; // don't need to go any further, if we're disabling, we're disabling
 	}
-	// TODO kinda presuming that pwmDrive will be set to zero if we've passed max steer angle?
+	Serial.println("told to steer, with " + String(steerSpeed) + " so....");
 
 	CAN_message_t KeyaBusSendData;
 	KeyaBusSendData.id = KeyaPGN;
@@ -98,12 +118,14 @@ void SteerKeya(int steerSpeed) {
 		KeyaBusSendData.buf[5] = 0x18;
 		KeyaBusSendData.buf[6] = 0xff;
 		KeyaBusSendData.buf[7] = 0xff;
+		if (debugKeya) Serial.println("pwmDrive < zero - clockwise - steerSpeed " + steerSpeed);
 	}
 	else {
 		KeyaBusSendData.buf[4] = 0x03; // TODO take PWM in instead for speed and remember to negate pwmDrive (this is 1000)
 		KeyaBusSendData.buf[5] = 0xe8;
 		KeyaBusSendData.buf[6] = 0;
 		KeyaBusSendData.buf[7] = 0;
+		if (debugKeya) Serial.println("pwmDrive > zero - anti-clockwise - steerSpeed " + steerSpeed);
 	}
 	Keya_Bus.write(KeyaBusSendData);
 	enableKeyaSteer();
@@ -122,6 +144,8 @@ void KeyaBus_Receive() {
 			//		is that accurate enough for us?
 			// 6-7 - Control_Close (error code)
 			// TODO Yeah, if we ever see something here, fire off a disable, refuse to engage autosteer or..?
+			int16_t current = KeyaBusReceiveData.buf[4];
+			if (debugKeya) Serial.println("Heartbeat current is " + current);
 		}
 
 		// response from most commands 0x05800001
@@ -129,11 +153,14 @@ void KeyaBus_Receive() {
 
 		if (KeyaBusReceiveData.id == 0x05800001) {
 			// response to current request (this is also in heartbeat)
-			if (isPatternMatch(KeyaBusReceiveData, keyaCurrent, sizeof(keyaCurrent))) {
+			if (isPatternMatch(KeyaBusReceiveData, keyaCurrentResponse, sizeof(keyaCurrentResponse))) {
 				// Current is unsigned float in [4]
 				// set the motor current variable, when you find out what that is
+				KeyaCurrentSensorReading = KeyaBusReceiveData.buf[4];
+				if (debugKeya) Serial.println("Returned current is " + KeyaCurrentSensorReading);
 			}
-			else if (1) {
+			else if (1 == 0) {
+				// placeholder for more checks
 			}
 		}
 	}

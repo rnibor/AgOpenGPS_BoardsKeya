@@ -344,7 +344,7 @@ void BuildNmea(void)
 
     if (!passThroughGPS && !passThroughGPS2)
     {
-        SerialAOG.write(nmea);  //Always send USB GPS data
+        // SerialAOG.write(nmea);  //Always send USB GPS data TODO remove this andy, this was just to quieten output down
     }
 
     if (Ethernet_running)   //If ethernet running send the GPS there

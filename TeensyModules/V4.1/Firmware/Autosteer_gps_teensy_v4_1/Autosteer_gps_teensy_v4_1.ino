@@ -38,7 +38,7 @@ HardwareSerial* SerialGPS2 = &Serial2;  //Dual heading receiver
 HardwareSerial* SerialGPSTmp = NULL;
 //HardwareSerial* SerialAOG = &Serial;
 
-const int32_t baudAOG = 115200;
+const int32_t baudAOG = 115200; 
 const int32_t baudGPS = 460800;
 const int32_t baudRTK = 9600;     // most are using Xbee radios with default of 115200
 
@@ -57,6 +57,8 @@ uint32_t baudrates[]
 };
 
 const uint32_t nrBaudrates = sizeof(baudrates)/sizeof(baudrates[0]);
+
+int16_t KeyaCurrentSensorReading = 0;
 
 #define ImuWire Wire        //SCL=19:A5 SDA=18:A4
 #define RAD_TO_DEG_X_10 572.95779513082320876798154814105
@@ -131,7 +133,7 @@ byte velocityPWM_Pin = 36;      // Velocity (MPH speed) PWM pin
 #include <Wire.h>
 #include "BNO08x_AOG.h"
 #include <FlexCAN_T4.h>
-FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_256> Keya_Bus;    
+FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_256> Keya_Bus;    // TODO are you sure this is right for PCB4.1? Should be OK for PCB2.4
 
 //Used to set CPU speed
 extern "C" uint32_t set_arm_clock(uint32_t frequency); // required prototype
@@ -346,7 +348,7 @@ void setup()
   Serial.print("useBNO08x = ");
   Serial.println(useBNO08x);
 
-  Serial.print("Right... time for some CANBUS! And, we're dedicated to Keya here");
+  Serial.println("Right... time for some CANBUS! And, we're dedicated to Keya here");
   CAN_Setup();
 
   Serial.println("\r\nEnd setup, waiting for GPS...\r\n");

@@ -60,8 +60,9 @@ void motorDrive(void)
 		if (pwmDrive == 0) {
 			// send disable
 			disableKeyaSteer();
+		} else {
+      SteerKeya(pwmDrive);
 		}
-		SteerKeya(pwmDrive);
 	}
 	else if (steerConfig.CytronDriver)
 	{
