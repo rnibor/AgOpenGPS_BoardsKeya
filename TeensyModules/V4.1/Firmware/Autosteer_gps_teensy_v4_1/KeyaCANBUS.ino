@@ -76,6 +76,23 @@ void disableKeyaSteer() {
 	//if (debugKeya) Serial.println("Disabled Keya motor");
 }
 
+void disableKeyaSteerTEST() {
+  CAN_message_t KeyaBusSendData;
+  KeyaBusSendData.id = KeyaPGN;
+  KeyaBusSendData.flags.extended = true;
+  KeyaBusSendData.len = 8;
+  KeyaBusSendData.buf[0] = 0x03;
+  KeyaBusSendData.buf[1] = 0x0d;
+  KeyaBusSendData.buf[2] = 0x20;
+  KeyaBusSendData.buf[3] = 0x11;
+  KeyaBusSendData.buf[4] = 0;
+  KeyaBusSendData.buf[5] = 0;
+  KeyaBusSendData.buf[6] = 0;
+  KeyaBusSendData.buf[7] = 0;
+  Keya_Bus.write(KeyaBusSendData);
+  //if (debugKeya) Serial.println("Disabled Keya motor");
+}
+
 void enableKeyaSteer() {
 	CAN_message_t KeyaBusSendData;
 	KeyaBusSendData.id = KeyaPGN;
@@ -135,6 +152,7 @@ void KeyaBus_Receive() {
 	if (Keya_Bus.read(KeyaBusReceiveData)) {
 		// parse the different message types
 		// heartbeat 0x07000001
+   // change heartbeat time in the software, default is 20ms
 		if (KeyaBusReceiveData.id == 0x07000001) {
 			// 0-1 - Cumulative value of angle (360 def / circle)
 			// 2-3 - Motor speed, signed int eg -500 or 500
