@@ -59,19 +59,24 @@ void motorDrive(void)
   if (steerConfig.CytronDriver)
   {
     // Cytron MD30C Driver Dir + PWM Signal
-    if (pwmDrive >= 0)
-    {
-      bitSet(PORTD, 4);  //set the correct direction
-    }
-    else
-    {
-      bitClear(PORTD, 4);
-      pwmDrive = -1 * pwmDrive;
-    }
+      if (abs(steerAngleError) > 0.1) {
+        if (pwmDrive >= 0)
+        {
+            bitSet(PORTD, 4);  //set the correct direction
+        }
+        else
+        {
+            bitClear(PORTD, 4);
+            pwmDrive = -1 * pwmDrive;
+        }
 
-    //write out the 0 to 255 value
-    analogWrite(PWM1_LPWM, pwmDrive);
-    pwmDisplay = pwmDrive;
+        //write out the 0 to 255 value
+        analogWrite(PWM1_LPWM, pwmDrive);
+        pwmDisplay = pwmDrive;
+      }
+      else {
+          Serial.println("Sleeping as steerAngleError is below threshold at" + String(steerAngleError));
+      }
   }
   else
   {
