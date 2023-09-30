@@ -65,6 +65,7 @@ ADS1115_lite adc(ADS1115_DEFAULT_ADDRESS);     // Use this for the 16-bit versio
 uint8_t autoSteerUdpData[UDP_TX_PACKET_MAX_SIZE];  // Buffer For Receiving UDP Data
 #endif
 
+bool isKeya = true;
 //loop time variables in microseconds
 const uint16_t LOOP_TIME = 25;  //40Hz
 uint32_t autsteerLastTime = LOOP_TIME;
@@ -154,14 +155,13 @@ struct Setup {
 	uint8_t CurrentSensor = 0;
 	uint8_t PulseCountMax = 5;
 	uint8_t IsDanfoss = 0;
-	uint8_t IsKeya = 1;           // TODO pass this in as a param from AOG in due course, hard-coded just now
 	uint8_t IsUseY_Axis = 0;     //Set to 0 to use X Axis, 1 to use Y avis
 
 }; Setup steerConfig;               // 9 bytes (AW: 14, surely?)
 
 void steerConfigInit()
 {
-	if (!steerConfig.IsKeya) {
+	if (!isKeya) {
 		if (steerConfig.CytronDriver)
 		{
 			pinMode(PWM2_RPWM, OUTPUT);
@@ -354,7 +354,7 @@ void autosteerLoop()
 		// Current sensor?
 		if (steerConfig.CurrentSensor)
 		{
-			if (steerConfig.IsKeya) {
+			if (isKeya) {
 				sensorReading = KeyaCurrentSensorReading;
 				if (KeyaCurrentSensorReading >= steerConfig.PulseCountMax) {
 					steerSwitch = 1; // reset values like it turned off
@@ -433,7 +433,7 @@ void autosteerLoop()
 		if (watchdogTimer < WATCHDOG_THRESHOLD)
 		{
 			//Enable H Bridge for IBT2, hyd aux, etc for cytron. Don't care about this for Keya
-			if (!steerConfig.IsKeya) {
+			if (!isKeya) {
 				if (steerConfig.CytronDriver)
 				{
 					if (steerConfig.IsRelayActiveHigh)
@@ -462,7 +462,7 @@ void autosteerLoop()
 			//we've lost the comm to AgOpenGPS, or just stop request
 			//Disable H Bridge for IBT2, hyd aux, etc for cytron
 			// Don't care about this for Keya
-			if (!steerConfig.IsKeya) {
+			if (!isKeya) {
 				if (steerConfig.CytronDriver)
 				{
 					if (steerConfig.IsRelayActiveHigh)
@@ -478,7 +478,7 @@ void autosteerLoop()
 			}
 
 			pwmDrive = 0; //turn off steering motor
-			if (steerConfig.IsKeya) disableKeyaSteer(); // If we lost the connection to AOG, definitely disable steering
+			if (isKeya) disableKeyaSteer(); // If we lost the connection to AOG, definitely disable steering
 			motorDrive(); //out to motors the pwm value
 			pulseCount = 0;
 			// Autosteer Led goes back to RED when autosteering is stopped
