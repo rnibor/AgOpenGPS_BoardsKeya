@@ -15,12 +15,38 @@
 uint8_t KeyaSteerPGN[] = { 0x23, 0x00, 0x20, 0x01, 0,0,0,0 }; // last 4 bytes change ofc
 uint8_t KeyaHeartbeat[] = { 0, 0, 0, 0, 0, 0, 0, 0, };
 
+uint8_t keyaDisableCommand[] = { 0x23, 0x0C, 0x20, 0x01 };
+uint8_t keyaDisableResponse[] = { 0x60, 0x0C, 0x20, 0x00 };
+
+uint8_t keyaEnableCommand[] = { 0x23, 0x0D, 0x20, 0x01 };
+uint8_t keyaEnableResponse[] = { 0x60, 0x0D, 0x20, 0x00 };
+
+uint8_t keyaSpeedCommand[] = { 0x23, 0x00, 0x20, 0x01 };
+uint8_t keyaSpeedResponse[] = { 0x60, 0x00, 0x20, 0x00 };
+
+uint8_t keyaCurrentQuery[] = { 0x40, 0x00, 0x21, 0x01 };
+uint8_t keyaCurrentResponse[] = { 0x60, 0x00, 0x21, 0x01 };
 // templates for matching responses of interest
-uint8_t keyaCurrentResponse[] = { 0x60, 0x12, 0x21, 0x01 };
+// uint8_t keyaCurrentResponse[] = { 0x60, 0x12, 0x21, 0x01 };
+
+uint8_t keyaFaultQuery[] = { 0x40, 0x12, 0x21, 0x01 };
+uint8_t keyaFaultResponse[] = { 0x60, 0x12, 0x21, 0x01 };
+
+uint8_t keyaVoltageQuery[] = { 0x40, 0x0D, 0x21, 0x02 };
+uint8_t keyaVoltageResponse[] = { 0x60, 0x0D, 0x21, 0x02 };
+
+uint8_t keyaTemperatureQuery[] = { 0x40, 0x0F, 0x21, 0x01 };
+uint8_t keyaTemperatureResponse[] = { 0x60, 0x0F, 0x21, 0x01 };
+
+uint8_t keyaVersionQuery[] = { 0x40, 0x01, 0x11, 0x11 };
+uint8_t keyaVersionResponse[] = { 0x60, 0x01, 0x11, 0x11 };
+
 
 uint64_t KeyaPGN = 0x06000001;
 
 const bool debugKeya = true;
+bool keyaMotorStatus = false;
+
 
 void keyaSend(uint8_t data[]) {
 	//TODO Use this optimisation function once we're happy things are moving the right way
@@ -33,6 +59,7 @@ void keyaSend(uint8_t data[]) {
 }
 
 void CAN_Setup() {
+  Serial.println("In Keya CAN-Setup");
 	Keya_Bus.begin();
 	Keya_Bus.setBaudRate(250000);
 	// Dedicated bus, zero chat from others. No need for filters
@@ -52,7 +79,7 @@ void CAN_Setup() {
 //	msgV.buf[7] = 0x20;
 //	Keya_Bus.write(msgV);
 	delay(1000);
-	if (debugKeya) Serial.println("Initialised Keya CANBUS");
+	if (debugKeya) Serial.println("Initialised CANBUS");
 }
 
 bool isPatternMatch(const CAN_message_t& message, const uint8_t* pattern, size_t patternSize) {
@@ -77,20 +104,20 @@ void disableKeyaSteer() {
 }
 
 void disableKeyaSteerTEST() {
-  CAN_message_t KeyaBusSendData;
-  KeyaBusSendData.id = KeyaPGN;
-  KeyaBusSendData.flags.extended = true;
-  KeyaBusSendData.len = 8;
-  KeyaBusSendData.buf[0] = 0x03;
-  KeyaBusSendData.buf[1] = 0x0d;
-  KeyaBusSendData.buf[2] = 0x20;
-  KeyaBusSendData.buf[3] = 0x11;
-  KeyaBusSendData.buf[4] = 0;
-  KeyaBusSendData.buf[5] = 0;
-  KeyaBusSendData.buf[6] = 0;
-  KeyaBusSendData.buf[7] = 0;
-  Keya_Bus.write(KeyaBusSendData);
-  //if (debugKeya) Serial.println("Disabled Keya motor");
+	CAN_message_t KeyaBusSendData;
+	KeyaBusSendData.id = KeyaPGN;
+	KeyaBusSendData.flags.extended = true;
+	KeyaBusSendData.len = 8;
+	KeyaBusSendData.buf[0] = 0x03;
+	KeyaBusSendData.buf[1] = 0x0d;
+	KeyaBusSendData.buf[2] = 0x20;
+	KeyaBusSendData.buf[3] = 0x11;
+	KeyaBusSendData.buf[4] = 0;
+	KeyaBusSendData.buf[5] = 0;
+	KeyaBusSendData.buf[6] = 0;
+	KeyaBusSendData.buf[7] = 0;
+	Keya_Bus.write(KeyaBusSendData);
+	//if (debugKeya) Serial.println("Disabled Keya motor");
 }
 
 void enableKeyaSteer() {
@@ -107,18 +134,18 @@ void enableKeyaSteer() {
 	KeyaBusSendData.buf[6] = 0;
 	KeyaBusSendData.buf[7] = 0;
 	Keya_Bus.write(KeyaBusSendData);
-	if (debugKeya) Serial.println("Enabled Keya motor");
+	//if (debugKeya) Serial.println("Enabled Keya motor");
 }
 
 void SteerKeya(int steerSpeed) {
+	if (!keyaDetected || AOGMIA) return;
 	int actualSpeed = map(steerSpeed, -255, 255, -995, 998);
 	if (pwmDrive == 0) {
 		disableKeyaSteer();
 		//if (debugKeya) Serial.println("pwmDrive zero - disabling");
 		return; // don't need to go any further, if we're disabling, we're disabling
 	}
-	if (debugKeya) Serial.println("told to steer, with " + String(steerSpeed) + " so....");
-	if (debugKeya) Serial.println("I converted that to speed " + String(actualSpeed));
+	if (debugKeya) Serial.println("told to steer, with " + String(steerSpeed) + " so I converted that to speed " + String(actualSpeed));
 
 	CAN_message_t KeyaBusSendData;
 	KeyaBusSendData.id = KeyaPGN;
@@ -129,7 +156,7 @@ void SteerKeya(int steerSpeed) {
 	KeyaBusSendData.buf[2] = 0x20;
 	KeyaBusSendData.buf[3] = 0x01;
 	if (steerSpeed < 0) {
-		KeyaBusSendData.buf[4] = highByte(actualSpeed); // TODO take PWM in instead for speed (this is -1000)
+		KeyaBusSendData.buf[4] = highByte(actualSpeed);
 		KeyaBusSendData.buf[5] = lowByte(actualSpeed);
 		KeyaBusSendData.buf[6] = 0xff;
 		KeyaBusSendData.buf[7] = 0xff;
@@ -140,7 +167,7 @@ void SteerKeya(int steerSpeed) {
 		KeyaBusSendData.buf[5] = lowByte(actualSpeed);
 		KeyaBusSendData.buf[6] = 0x00;
 		KeyaBusSendData.buf[7] = 0x00;
-		if (debugKeya) Serial.println("pwmDrive > zero - anticlock-clockwise - steerSpeed " + String(steerSpeed));
+		if (debugKeya) Serial.println("pwmDrive > zero - anti-clockwise - steerSpeed " + String(steerSpeed));
 	}
 	Keya_Bus.write(KeyaBusSendData);
 	enableKeyaSteer();
@@ -148,12 +175,22 @@ void SteerKeya(int steerSpeed) {
 
 
 void KeyaBus_Receive() {
-	CAN_message_t KeyaBusReceiveData;
+  CAN_message_t KeyaBusReceiveData;
 	if (Keya_Bus.read(KeyaBusReceiveData)) {
 		// parse the different message types
 		// heartbeat 0x07000001
-   // change heartbeat time in the software, default is 20ms
+		// change heartbeat time in the software, default is 20ms
 		if (KeyaBusReceiveData.id == 0x07000001) {
+      // No AOG, no play!
+      if (AOGMIA) {
+        if (debugKeya) Serial.println("Found a Keya heartbeat, but no AOG - not playing! AOGMIA " + String(AOGMIA));
+        return;
+      }
+			keyaMotorStatus = !bitRead(KeyaBusReceiveData.buf[7], 0);
+			if (!keyaDetected && !AOGMIA) {
+				if (debugKeya) Serial.println("Keya heartbeat detected! Enabling Keya canbus & using reported motor current for disengage " + String(AOGMIA));
+				keyaDetected = true;
+			}
 			// 0-1 - Cumulative value of angle (360 def / circle)
 			// 2-3 - Motor speed, signed int eg -500 or 500
 			// 4-5 - Motor current, with "symbol" ? Signed I think that means, but it does appear to be a crap int. 1, 2 for 1, 2 amps etc
@@ -169,22 +206,36 @@ void KeyaBus_Receive() {
 				KeyaCurrentSensorReading = KeyaBusReceiveData.buf[5] * 20;
 			}
 			//if (debugKeya) Serial.println("Heartbeat current is " + String(KeyaCurrentSensorReading));
+
+			if (KeyaBusReceiveData.buf[7] != 0) {
+
+				// motor disabled bit
+				if (bitRead(KeyaBusReceiveData.buf[7], 0)) {
+					if (steerSwitch == 0 && keyaMotorStatus == 1) {
+						Serial.print("\r\nMotor disabled");
+						Serial.print(" - set AS off");
+						steerSwitch = 1; // turn off AS if motor's internal shutdown triggers
+						currentState = 1;
+						previous = 0;
+					}
+				}
+			}
 		}
 
 		// response from most commands 0x05800001
 		// could have been separate PGNs, but oh no...
 
-		//if (KeyaBusReceiveData.id == 0x05800001) {
-		//	// response to current request (this is also in heartbeat)
-		//	if (isPatternMatch(KeyaBusReceiveData, keyaCurrentResponse, sizeof(keyaCurrentResponse))) {
-		//		// Current is unsigned float in [4]
-		//		// set the motor current variable, when you find out what that is
-		//		KeyaCurrentSensorReading = KeyaBusReceiveData.buf[4];
-		//		if (debugKeya) Serial.println("Returned current is " + KeyaCurrentSensorReading);
-		//	}
-		//	else if (1 == 0) {
-		//		// placeholder for more checks
-		//	}
-		//}
+		if (KeyaBusReceiveData.id == 0x05800001) {
+			// response to current request (this is also in heartbeat)
+			if (isPatternMatch(KeyaBusReceiveData, keyaCurrentResponse, sizeof(keyaCurrentResponse))) {
+				// Current is unsigned float in [4]
+				// set the motor current variable, when you find out what that is
+				KeyaCurrentSensorReading = KeyaBusReceiveData.buf[4] * 2.5; // so that AoG's display shows "amps"
+
+				if (debugKeya) {
+					Serial.println("Returned current is " + KeyaCurrentSensorReading);
+				}
+			}
+		}
 	}
 }

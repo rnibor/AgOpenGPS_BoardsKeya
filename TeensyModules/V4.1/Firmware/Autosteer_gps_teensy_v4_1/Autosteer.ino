@@ -146,7 +146,7 @@ struct Setup {
 	uint8_t IsRelayActiveHigh = 0;    // if zero, active low (default)
 	uint8_t MotorDriveDirection = 0;
 	uint8_t SingleInputWAS = 1;
-	uint8_t CytronDriver = 1;         // 0 if IBT, but we need to throw Keya into the mix. As we set bits from UDP, best to separate these and override "if keya"
+	uint8_t CytronDriver = 1;
 	uint8_t SteerSwitch = 0;          // 1 if switch selected
 	uint8_t SteerButton = 0;          // 1 if button selected
 	uint8_t ShaftEncoder = 0;
@@ -154,18 +154,14 @@ struct Setup {
 	uint8_t CurrentSensor = 0;
 	uint8_t PulseCountMax = 5;
 	uint8_t IsDanfoss = 0;
-	uint8_t IsKeya = 1;           // TODO pass this in as a param from AOG in due course, hard-coded just now
 	uint8_t IsUseY_Axis = 0;     //Set to 0 to use X Axis, 1 to use Y avis
-
 }; Setup steerConfig;               // 9 bytes (AW: 14, surely?)
 
 void steerConfigInit()
 {
-	if (!steerConfig.IsKeya) {
-		if (steerConfig.CytronDriver)
-		{
-			pinMode(PWM2_RPWM, OUTPUT);
-		}
+	if (steerConfig.CytronDriver)
+	{
+		pinMode(PWM2_RPWM, OUTPUT);
 	}
 }
 
@@ -284,14 +280,32 @@ void autosteerLoop()
 		encEnable = true;
 
 		//If connection lost to AgOpenGPS, the watchdog will count up and turn off steering
-		if (watchdogTimer++ > 250) watchdogTimer = WATCHDOG_FORCE_VALUE;
+		if (watchdogTimer++ > 250) {
+			watchdogTimer = WATCHDOG_FORCE_VALUE;
+			AOGMIA = true;
+			Serial.println("Lost connection to AOG - disabling Keya commands - AOGMIA " + String(AOGMIA));
+			keyaDetected = false;
+		}
 
 		//read all the switches
 		workSwitch = digitalRead(WORKSW_PIN);  // read work switch
 
 		if (steerConfig.SteerSwitch == 1)         //steer switch on - off
 		{
-			steerSwitch = digitalRead(STEERSW_PIN); //read auto steer enable switch open = 0n closed = Off
+			//steerSwitch = digitalRead(STEERSW_PIN); //read auto steer enable switch open = 0n closed = Off
+
+			// new code for steer "Switch" mode that keeps AutoSteer OFF after current/pressure kickout until switch is cycled
+			reading = digitalRead(STEERSW_PIN);
+			if (reading == HIGH)  // switching "OFF"
+			{
+				steerSwitch = reading;
+			}
+			else if (reading == LOW && previous == HIGH)
+			{
+				steerSwitch = reading;
+			}
+			previous = reading;
+			// end new code
 		}
 		else if (steerConfig.SteerButton == 1)    //steer Button momentary
 		{
@@ -354,15 +368,17 @@ void autosteerLoop()
 		// Current sensor?
 		if (steerConfig.CurrentSensor)
 		{
-			if (steerConfig.IsKeya) {
-				sensorReading = KeyaCurrentSensorReading;
-				if (KeyaCurrentSensorReading >= steerConfig.PulseCountMax) {
-					steerSwitch = 1; // reset values like it turned off
-					currentState = 1;
-					previous = 0;
-				}
+			if (keyaDetected) {
+				// Matt did it this way
+				sensorReading = sensorReading * 0.7 + KeyaCurrentSensorReading * 0.3; // then use keya current data
+				//sensorReading = KeyaCurrentSensorReading;
+				//if (KeyaCurrentSensorReading >= steerConfig.PulseCountMax) {
+				//	steerSwitch = 1; // reset values like it turned off
+				//	currentState = 1;
+				//	previous = 0;
+				//}
 			}
-			else {
+			else { // otherwise continue using analog input on PCB
 				sensorSample = (float)analogRead(CURRENT_SENSOR_PIN);
 				sensorSample = (abs(775 - sensorSample)) * 0.5;
 				sensorReading = sensorReading * 0.7 + sensorSample * 0.3;
@@ -433,20 +449,18 @@ void autosteerLoop()
 		if (watchdogTimer < WATCHDOG_THRESHOLD)
 		{
 			//Enable H Bridge for IBT2, hyd aux, etc for cytron. Don't care about this for Keya
-			if (!steerConfig.IsKeya) {
-				if (steerConfig.CytronDriver)
+			if (steerConfig.CytronDriver)
+			{
+				if (steerConfig.IsRelayActiveHigh)
 				{
-					if (steerConfig.IsRelayActiveHigh)
-					{
-						digitalWrite(PWM2_RPWM, 0);
-					}
-					else
-					{
-						digitalWrite(PWM2_RPWM, 1);
-					}
+					digitalWrite(PWM2_RPWM, 0);
 				}
-				else digitalWrite(DIR1_RL_ENABLE, 1);
+				else
+				{
+					digitalWrite(PWM2_RPWM, 1);
+				}
 			}
+			else digitalWrite(DIR1_RL_ENABLE, 1);
 			steerAngleError = steerAngleActual - steerAngleSetPoint;   //calculate the steering error
 			//if (abs(steerAngleError)< steerSettings.lowPWM) steerAngleError = 0;
 
@@ -462,23 +476,20 @@ void autosteerLoop()
 			//we've lost the comm to AgOpenGPS, or just stop request
 			//Disable H Bridge for IBT2, hyd aux, etc for cytron
 			// Don't care about this for Keya
-			if (!steerConfig.IsKeya) {
-				if (steerConfig.CytronDriver)
+			if (steerConfig.CytronDriver)
+			{
+				if (steerConfig.IsRelayActiveHigh)
 				{
-					if (steerConfig.IsRelayActiveHigh)
-					{
-						digitalWrite(PWM2_RPWM, 1);
-					}
-					else
-					{
-						digitalWrite(PWM2_RPWM, 0);
-					}
+					digitalWrite(PWM2_RPWM, 1);
 				}
-				else digitalWrite(DIR1_RL_ENABLE, 0); //IBT2
+				else
+				{
+					digitalWrite(PWM2_RPWM, 0);
+				}
 			}
+			else digitalWrite(DIR1_RL_ENABLE, 0); //IBT2
 
 			pwmDrive = 0; //turn off steering motor
-			if (steerConfig.IsKeya) disableKeyaSteer(); // If we lost the connection to AOG, definitely disable steering
 			motorDrive(); //out to motors the pwm value
 			pulseCount = 0;
 			// Autosteer Led goes back to RED when autosteering is stopped
@@ -557,6 +568,7 @@ void ReceiveUdp()
 
 		if (autoSteerUdpData[0] == 0x80 && autoSteerUdpData[1] == 0x81 && autoSteerUdpData[2] == 0x7F) //Data
 		{
+      AOGMIA = false;
 			if (autoSteerUdpData[3] == 0xFE && Autosteer_running)  //254
 			{
 				gpsSpeed = ((float)(autoSteerUdpData[5] | autoSteerUdpData[6] << 8)) * 0.1;

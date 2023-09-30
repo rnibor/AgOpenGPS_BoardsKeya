@@ -56,7 +56,7 @@ void motorDrive(void)
 	// Used with Cytron MD30C Driver
 	// Steering Motor
 	// Dir + PWM Signal
-	if (steerConfig.IsKeya) {
+	if (keyaDetected) {
 		if (pwmDrive == 0) {
 			// send disable
 			disableKeyaSteer();

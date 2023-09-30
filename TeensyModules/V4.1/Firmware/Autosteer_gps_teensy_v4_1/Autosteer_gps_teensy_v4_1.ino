@@ -58,7 +58,6 @@ uint32_t baudrates[]
 
 const uint32_t nrBaudrates = sizeof(baudrates)/sizeof(baudrates[0]);
 
-int8_t KeyaCurrentSensorReading = 0;
 
 #define ImuWire Wire        //SCL=19:A5 SDA=18:A4
 #define RAD_TO_DEG_X_10 572.95779513082320876798154814105
@@ -132,11 +131,18 @@ byte velocityPWM_Pin = 36;      // Velocity (MPH speed) PWM pin
 #include "zNMEAParser.h"
 #include <Wire.h>
 #include "BNO08x_AOG.h"
+
+
+
 #include <FlexCAN_T4.h>
-// CRX2/CTX2 on Teensy are CAN2 on board
-// CRX3/CTX3 on Teensy are CAN1 on board
-// Seems to work for CAN2, not sure why it didn't for CAN1
-FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_256> Keya_Bus;    // TODO are you sure this is right for PCB4.1? Should be OK for PCB2.4
+// CRX1/CTX1 on Teensy are CAN3 on Tony's board
+// CRX2/CTX2 on Teensy are CAN2 on AIO board, CAN2 on Tony's board
+// CRX3/CTX3 on Teensy are CAN1 on AIO board, CAN3 on Tony's board
+FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_256> Keya_Bus;
+int8_t KeyaCurrentSensorReading = 0;
+bool keyaDetected = false;
+bool AOGMIA = false;
+
 
 //Used to set CPU speed
 extern "C" uint32_t set_arm_clock(uint32_t frequency); // required prototype
@@ -351,7 +357,6 @@ void setup()
   Serial.print("useBNO08x = ");
   Serial.println(useBNO08x);
 
-  Serial.println("Right... time for some CANBUS! And, we're dedicated to Keya here");
   CAN_Setup();
 
   Serial.println("\r\nEnd setup, waiting for GPS...\r\n");
