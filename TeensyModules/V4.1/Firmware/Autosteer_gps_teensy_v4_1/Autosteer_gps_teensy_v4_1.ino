@@ -29,6 +29,10 @@
 // lansalot's attempt at Keya integration
 // (he apologizes in advance)
 
+uint32_t KeyaBeacon = millis();
+char beaconIdentifier[] = {0x80,0x99};
+
+
 /************************* User Settings *************************/
 // Serial Ports
 #define SerialAOG Serial                //AgIO USB conection
@@ -173,6 +177,7 @@ double baseline = 0;
 double rollDual = 0;
 double relPosD = 0;
 double heading = 0;
+
 
 byte ackPacket[72] = {0xB5, 0x62, 0x01, 0x3C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
@@ -692,6 +697,12 @@ void loop()
   {
     digitalWrite(Power_on_LED, 0);
     digitalWrite(Ethernet_Active_LED, 1);
+  }
+  if (millis() - KeyaBeacon > 5000) {
+      // just testing, let's send a beacon every 5 seconds
+      //char str[] = "Hello world";
+      SendUdpFreeForm("Hello world", Eth_ipDestination, portDestination);
+
   }
 }//End Loop
 //**************************************************************************

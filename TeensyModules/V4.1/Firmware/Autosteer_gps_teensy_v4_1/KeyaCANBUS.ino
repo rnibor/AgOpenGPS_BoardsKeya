@@ -12,6 +12,7 @@
 //Slow clockwise	0x23 0x00 0x20 0x01 0xFE 0x0C 0xFF 0xFF (0xfe0c signed dec is - 500)
 //Slow anti - clockwise	0x23 0x00 0x20 0x01 0x01 0xf4 0x00 0x00 (0x01f4 signed dec is 500)
 
+
 uint8_t KeyaSteerPGN[] = { 0x23, 0x00, 0x20, 0x01, 0,0,0,0 }; // last 4 bytes change ofc
 uint8_t KeyaHeartbeat[] = { 0, 0, 0, 0, 0, 0, 0, 0, };
 
@@ -41,25 +42,21 @@ uint8_t keyaTemperatureResponse[] = { 0x60, 0x0F, 0x21, 0x01 };
 uint8_t keyaVersionQuery[] = { 0x40, 0x01, 0x11, 0x11 };
 uint8_t keyaVersionResponse[] = { 0x60, 0x01, 0x11, 0x11 };
 
+uint32_t KeyaStatusUpdate = millis();
+
 
 uint64_t KeyaPGN = 0x06000001;
 
 const bool debugKeya = true;
 bool keyaMotorStatus = false;
 
-
-void keyaSend(uint8_t data[]) {
-	//TODO Use this optimisation function once we're happy things are moving the right way
-	CAN_message_t KeyaBusSendData;
-	KeyaBusSendData.id = KeyaPGN;
-	KeyaBusSendData.flags.extended = true;
-	KeyaBusSendData.len = 8;
-	memcpy(KeyaBusSendData.buf, data, sizeof(data));
-	Keya_Bus.write(KeyaBusSendData);
+bool isPatternMatch(const CAN_message_t& message, const uint8_t* pattern, size_t patternSize) {
+	return memcmp(message.buf, pattern, patternSize) == 0;
 }
 
+
 void CAN_Setup() {
-  Serial.println("In Keya CAN-Setup");
+	Serial.println("In Keya CAN-Setup");
 	Keya_Bus.begin();
 	Keya_Bus.setBaudRate(250000);
 	// Dedicated bus, zero chat from others. No need for filters
@@ -82,11 +79,26 @@ void CAN_Setup() {
 	if (debugKeya) Serial.println("Initialised CANBUS");
 }
 
-bool isPatternMatch(const CAN_message_t& message, const uint8_t* pattern, size_t patternSize) {
-	return memcmp(message.buf, pattern, patternSize) == 0;
+
+void keyaSend(uint8_t data[8]) {
+	//TODO Use this optimisation function once we're happy things are moving the right way
+	CAN_message_t KeyaBusSendData;
+	KeyaBusSendData.id = KeyaPGN;
+	KeyaBusSendData.flags.extended = true;
+	KeyaBusSendData.len = 8;
+	memcpy(KeyaBusSendData.buf, data, 8);
+	Keya_Bus.write(KeyaBusSendData);
 }
 
+
 void disableKeyaSteer() {
+	uint8_t buf[] = { 0x03, 0x0d, 0x20, 0x11, 0, 0, 0, 0 };
+	keyaSend(buf);
+	if (debugKeya) Serial.println("Disabled Keya motor (new code)");
+}
+
+
+void disableKeyaSteerOriginal() {
 	CAN_message_t KeyaBusSendData;
 	KeyaBusSendData.id = KeyaPGN;
 	KeyaBusSendData.flags.extended = true;
@@ -100,27 +112,11 @@ void disableKeyaSteer() {
 	KeyaBusSendData.buf[6] = 0;
 	KeyaBusSendData.buf[7] = 0;
 	Keya_Bus.write(KeyaBusSendData);
-	//if (debugKeya) Serial.println("Disabled Keya motor");
+	if (debugKeya) UpdateKeyaStatus("Disabled Keya motor");
 }
 
-void disableKeyaSteerTEST() {
-	CAN_message_t KeyaBusSendData;
-	KeyaBusSendData.id = KeyaPGN;
-	KeyaBusSendData.flags.extended = true;
-	KeyaBusSendData.len = 8;
-	KeyaBusSendData.buf[0] = 0x03;
-	KeyaBusSendData.buf[1] = 0x0d;
-	KeyaBusSendData.buf[2] = 0x20;
-	KeyaBusSendData.buf[3] = 0x11;
-	KeyaBusSendData.buf[4] = 0;
-	KeyaBusSendData.buf[5] = 0;
-	KeyaBusSendData.buf[6] = 0;
-	KeyaBusSendData.buf[7] = 0;
-	Keya_Bus.write(KeyaBusSendData);
-	//if (debugKeya) Serial.println("Disabled Keya motor");
-}
 
-void enableKeyaSteer() {
+void enableKeyaSteerOriginal() {
 	CAN_message_t KeyaBusSendData;
 	KeyaBusSendData.id = KeyaPGN;
 	KeyaBusSendData.flags.extended = true;
@@ -137,7 +133,15 @@ void enableKeyaSteer() {
 	//if (debugKeya) Serial.println("Enabled Keya motor");
 }
 
-void SteerKeya(int steerSpeed) {
+
+void enableKeyaSteer() {
+	uint8_t buf[] = { 0x23, 0x0d, 0x20, 0x01, 0, 0, 0, 0 };
+	keyaSend(buf);
+	if (debugKeya) Serial.println("Enabled Keya motor (new code)");
+}
+
+
+void SteerKeyaOriginal(int steerSpeed) {
 	if (!keyaDetected || AOGMIA) return;
 	int actualSpeed = map(steerSpeed, -255, 255, -995, 998);
 	if (pwmDrive == 0) {
@@ -173,22 +177,62 @@ void SteerKeya(int steerSpeed) {
 	enableKeyaSteer();
 }
 
+void SteerKeya(int steerSpeed) {
+	if (!keyaDetected || AOGMIA) return;
+	int actualSpeed = map(steerSpeed, -255, 255, -995, 998);
+	if (pwmDrive == 0) {
+		disableKeyaSteer();
+		//if (debugKeya) Serial.println("pwmDrive zero - disabling");
+		return; // don't need to go any further, if we're disabling, we're disabling
+	}
+	if (debugKeya) Serial.println("told to steer, with " + String(steerSpeed) + " so I converted that to speed " + String(actualSpeed));
+
+	uint8_t buf[] = { 0x23, 0x00, 0x20, 0x01, 0, 0, 0, 0 };
+	if (steerSpeed < 0) {
+		buf[4] = highByte(actualSpeed);
+		buf[5] = lowByte(actualSpeed);
+		buf[6] = 0xff;
+		buf[7] = 0xff;
+		if (debugKeya) Serial.println("pwmDrive < zero - clockwise - steerSpeed " + String(steerSpeed));
+	}
+	else {
+		buf[4] = highByte(actualSpeed);
+		buf[5] = lowByte(actualSpeed);
+		buf[6] = 0x00;
+		buf[7] = 0x00;
+		if (debugKeya) Serial.println("pwmDrive > zero - anti-clockwise - steerSpeed " + String(steerSpeed));
+	}
+	keyaSend(buf);
+	enableKeyaSteer();
+}
+
+
+void UpdateKeyaStatus(const char* messageString) {
+	// this will be a simple rate-limited message, we don't want everything getting printer
+	// yeah, we might miss something interesting, but who cares
+	if (millis() - KeyaStatusUpdate > 2000) {
+		Serial.println(messageString);
+	}
+	KeyaStatusUpdate = millis();
+}
 
 void KeyaBus_Receive() {
-  CAN_message_t KeyaBusReceiveData;
+	CAN_message_t KeyaBusReceiveData;
 	if (Keya_Bus.read(KeyaBusReceiveData)) {
 		// parse the different message types
 		// heartbeat 0x07000001
 		// change heartbeat time in the software, default is 20ms
 		if (KeyaBusReceiveData.id == 0x07000001) {
-      // No AOG, no play!
-      if (AOGMIA) {
-        if (debugKeya) Serial.println("Found a Keya heartbeat, but no AOG - not playing! AOGMIA " + String(AOGMIA));
-        return;
-      }
+			// No AOG, no play!
+			if (AOGMIA) {
+				if (debugKeya) Serial.println("Found a Keya heartbeat, but no AOG - not playing! AOGMIA " + String(AOGMIA));
+				return;
+			}
+			UpdateKeyaStatus("Received heartbeat data from Keya");
 			keyaMotorStatus = !bitRead(KeyaBusReceiveData.buf[7], 0);
 			if (!keyaDetected && !AOGMIA) {
 				if (debugKeya) Serial.println("Keya heartbeat detected! Enabling Keya canbus & using reported motor current for disengage " + String(AOGMIA));
+				SendUdpFreeForm("Keya says hello!", Eth_ipDestination, portDestination);
 				keyaDetected = true;
 			}
 			// 0-1 - Cumulative value of angle (360 def / circle)

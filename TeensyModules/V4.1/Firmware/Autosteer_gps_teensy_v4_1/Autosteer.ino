@@ -568,7 +568,7 @@ void ReceiveUdp()
 
 		if (autoSteerUdpData[0] == 0x80 && autoSteerUdpData[1] == 0x81 && autoSteerUdpData[2] == 0x7F) //Data
 		{
-      AOGMIA = false;
+			AOGMIA = false;
 			if (autoSteerUdpData[3] == 0xFE && Autosteer_running)  //254
 			{
 				gpsSpeed = ((float)(autoSteerUdpData[5] | autoSteerUdpData[6] << 8)) * 0.1;
@@ -803,6 +803,16 @@ void SendUdp(uint8_t* data, uint8_t datalen, IPAddress dip, uint16_t dport)
 {
 	Eth_udpAutoSteer.beginPacket(dip, dport);
 	Eth_udpAutoSteer.write(data, datalen);
+	Eth_udpAutoSteer.endPacket();
+}
+
+void SendUdpFreeForm(char str[], IPAddress dip, uint16_t dport)
+{
+	char ForTheWire[sizeof(str) - 1 + strlen(str) + 1]; 
+	strcpy(ForTheWire, beaconIdentifier);
+	strcat(ForTheWire, str);
+	Eth_udpAutoSteer.beginPacket(dip, dport);
+	Eth_udpAutoSteer.write(ForTheWire, sizeof(ForTheWire));
 	Eth_udpAutoSteer.endPacket();
 }
 #endif
