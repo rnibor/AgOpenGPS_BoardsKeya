@@ -282,8 +282,7 @@ void autosteerLoop()
 		//If connection lost to AgOpenGPS, the watchdog will count up and turn off steering
 		if (watchdogTimer++ > 250) {
 			watchdogTimer = WATCHDOG_FORCE_VALUE;
-			AOGMIA = true;
-			Serial.println("Lost connection to AOG - disabling Keya commands - AOGMIA " + String(AOGMIA));
+			Serial.println("Lost connection to AOG - disabling Keya commands");
 			keyaDetected = false;
 		}
 
@@ -568,7 +567,6 @@ void ReceiveUdp()
 
 		if (autoSteerUdpData[0] == 0x80 && autoSteerUdpData[1] == 0x81 && autoSteerUdpData[2] == 0x7F) //Data
 		{
-			AOGMIA = false;
 			if (autoSteerUdpData[3] == 0xFE && Autosteer_running)  //254
 			{
 				gpsSpeed = ((float)(autoSteerUdpData[5] | autoSteerUdpData[6] << 8)) * 0.1;
@@ -808,12 +806,14 @@ void SendUdp(uint8_t* data, uint8_t datalen, IPAddress dip, uint16_t dport)
 
 void SendUdpFreeForm(char str[], IPAddress dip, uint16_t dport)
 {
-	char ForTheWire[sizeof(str) - 1 + strlen(str) + 1]; 
+	uint32_t start = millis();
+	char ForTheWire[sizeof(str) - 1 + strlen(str) + 1];
 	strcpy(ForTheWire, beaconIdentifier);
 	strcat(ForTheWire, str);
 	Eth_udpAutoSteer.beginPacket(dip, dport);
 	Eth_udpAutoSteer.write(ForTheWire, sizeof(ForTheWire));
 	Eth_udpAutoSteer.endPacket();
+	//Serial.println("Send freeform took " + String(millis() - start) + " milliseconds");
 }
 #endif
 

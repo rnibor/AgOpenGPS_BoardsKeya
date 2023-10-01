@@ -94,7 +94,7 @@ void keyaSend(uint8_t data[8]) {
 void disableKeyaSteer() {
 	uint8_t buf[] = { 0x03, 0x0d, 0x20, 0x11, 0, 0, 0, 0 };
 	keyaSend(buf);
-	if (debugKeya) Serial.println("Disabled Keya motor (new code)");
+	//if (debugKeya) Serial.println("Disabled Keya motor (new code)");
 }
 
 
@@ -142,7 +142,7 @@ void enableKeyaSteer() {
 
 
 void SteerKeyaOriginal(int steerSpeed) {
-	if (!keyaDetected || AOGMIA) return;
+	if (!keyaDetected) return;
 	int actualSpeed = map(steerSpeed, -255, 255, -995, 998);
 	if (pwmDrive == 0) {
 		disableKeyaSteer();
@@ -178,7 +178,7 @@ void SteerKeyaOriginal(int steerSpeed) {
 }
 
 void SteerKeya(int steerSpeed) {
-	if (!keyaDetected || AOGMIA) return;
+	if (!keyaDetected) return;
 	int actualSpeed = map(steerSpeed, -255, 255, -995, 998);
 	if (pwmDrive == 0) {
 		disableKeyaSteer();
@@ -223,15 +223,9 @@ void KeyaBus_Receive() {
 		// heartbeat 0x07000001
 		// change heartbeat time in the software, default is 20ms
 		if (KeyaBusReceiveData.id == 0x07000001) {
-			// No AOG, no play!
-			if (AOGMIA) {
-				if (debugKeya) Serial.println("Found a Keya heartbeat, but no AOG - not playing! AOGMIA " + String(AOGMIA));
-				return;
-			}
-			UpdateKeyaStatus("Received heartbeat data from Keya");
 			keyaMotorStatus = !bitRead(KeyaBusReceiveData.buf[7], 0);
-			if (!keyaDetected && !AOGMIA) {
-				if (debugKeya) Serial.println("Keya heartbeat detected! Enabling Keya canbus & using reported motor current for disengage " + String(AOGMIA));
+			if (!keyaDetected) {
+				if (debugKeya) Serial.println("Keya heartbeat detected! Enabling Keya canbus & using reported motor current for disengage");
 				SendUdpFreeForm("Keya says hello!", Eth_ipDestination, portDestination);
 				keyaDetected = true;
 			}
@@ -243,12 +237,7 @@ void KeyaBus_Receive() {
 			// TODO Yeah, if we ever see something here, fire off a disable, refuse to engage autosteer or..?
 			//KeyaCurrentSensorReading = abs((int16_t)((KeyaBusReceiveData.buf[5] << 8) | KeyaBusReceiveData.buf[4]));
 			//if (KeyaCurrentSensorReading > 255) KeyaCurrentSensorReading -= 255;
-			if (KeyaBusReceiveData.buf[4] == 0xFF) {
-				KeyaCurrentSensorReading = (256 - KeyaBusReceiveData.buf[5]) * 20;
-			}
-			else {
-				KeyaCurrentSensorReading = KeyaBusReceiveData.buf[5] * 20;
-			}
+			KeyaCurrentSensorReading = KeyaBusReceiveData.buf[5] * 20;
 			//if (debugKeya) Serial.println("Heartbeat current is " + String(KeyaCurrentSensorReading));
 
 			if (KeyaBusReceiveData.buf[7] != 0) {

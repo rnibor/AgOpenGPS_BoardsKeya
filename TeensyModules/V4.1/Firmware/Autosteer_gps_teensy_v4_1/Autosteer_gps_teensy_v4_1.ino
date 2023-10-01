@@ -145,7 +145,6 @@ byte velocityPWM_Pin = 36;      // Velocity (MPH speed) PWM pin
 FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_256> Keya_Bus;
 int8_t KeyaCurrentSensorReading = 0;
 bool keyaDetected = false;
-bool AOGMIA = false;
 
 
 //Used to set CPU speed
@@ -701,8 +700,9 @@ void loop()
   if (millis() - KeyaBeacon > 5000) {
       // just testing, let's send a beacon every 5 seconds
       //char str[] = "Hello world";
+      Serial.println("Sending beacon");
       SendUdpFreeForm("Hello world", Eth_ipDestination, portDestination);
-
+      KeyaBeacon = millis();
   }
 }//End Loop
 //**************************************************************************
