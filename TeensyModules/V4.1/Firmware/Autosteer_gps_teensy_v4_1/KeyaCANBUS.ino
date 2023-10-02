@@ -47,6 +47,8 @@ uint32_t KeyaStatusUpdate = millis();
 
 uint64_t KeyaPGN = 0x06000001;
 
+CAN_message_t KeyaBusSendData; // this is the stub message we'll send to the Keya bus
+
 const bool debugKeya = true;
 bool keyaMotorStatus = false;
 
@@ -76,16 +78,18 @@ void CAN_Setup() {
 //	msgV.buf[7] = 0x20;
 //	Keya_Bus.write(msgV);
 	delay(1000);
+	KeyaBusSendData.id = KeyaPGN;
+	KeyaBusSendData.flags.extended = true;
+	KeyaBusSendData.len = 8;
 	if (debugKeya) Serial.println("Initialised CANBUS");
 }
 
 
 void keyaSend(uint8_t data[8]) {
-	//TODO Use this optimisation function once we're happy things are moving the right way
-	CAN_message_t KeyaBusSendData;
-	KeyaBusSendData.id = KeyaPGN;
-	KeyaBusSendData.flags.extended = true;
-	KeyaBusSendData.len = 8;
+	//CAN_message_t KeyaBusSendData;
+	//KeyaBusSendData.id = KeyaPGN;
+	//KeyaBusSendData.flags.extended = true;
+	//KeyaBusSendData.len = 8;
 	memcpy(KeyaBusSendData.buf, data, 8);
 	Keya_Bus.write(KeyaBusSendData);
 }
@@ -94,7 +98,7 @@ void keyaSend(uint8_t data[8]) {
 void disableKeyaSteer() {
 	uint8_t buf[] = { 0x03, 0x0d, 0x20, 0x11, 0, 0, 0, 0 };
 	keyaSend(buf);
-	//if (debugKeya) Serial.println("Disabled Keya motor (new code)");
+	//if (debugKeya) Serial.println("Disabled Keya motor");
 }
 
 
@@ -137,7 +141,7 @@ void enableKeyaSteerOriginal() {
 void enableKeyaSteer() {
 	uint8_t buf[] = { 0x23, 0x0d, 0x20, 0x01, 0, 0, 0, 0 };
 	keyaSend(buf);
-	if (debugKeya) Serial.println("Enabled Keya motor (new code)");
+	//if (debugKeya) Serial.println("Enabled Keya motor");
 }
 
 
@@ -177,6 +181,7 @@ void SteerKeyaOriginal(int steerSpeed) {
 	enableKeyaSteer();
 }
 
+
 void SteerKeya(int steerSpeed) {
 	if (!keyaDetected) return;
 	int actualSpeed = map(steerSpeed, -255, 255, -995, 998);
@@ -208,7 +213,7 @@ void SteerKeya(int steerSpeed) {
 
 
 void UpdateKeyaStatus(const char* messageString) {
-	// this will be a simple rate-limited message, we don't want everything getting printer
+	// this will be a simple rate-limited message, we don't want everything getting printed
 	// yeah, we might miss something interesting, but who cares
 	if (millis() - KeyaStatusUpdate > 2000) {
 		Serial.println(messageString);
@@ -226,7 +231,7 @@ void KeyaBus_Receive() {
 			keyaMotorStatus = !bitRead(KeyaBusReceiveData.buf[7], 0);
 			if (!keyaDetected) {
 				if (debugKeya) Serial.println("Keya heartbeat detected! Enabling Keya canbus & using reported motor current for disengage");
-				SendUdpFreeForm("Keya says hello!", Eth_ipDestination, portDestination);
+				SendUdpFreeForm("Keya motor signature detected - I'll steer that way!", Eth_ipDestination, portDestination);
 				keyaDetected = true;
 			}
 			// 0-1 - Cumulative value of angle (360 def / circle)
@@ -256,7 +261,7 @@ void KeyaBus_Receive() {
 		}
 
 		// response from most commands 0x05800001
-		// could have been separate PGNs, but oh no...
+		// could have been separate codes, but oh no...
 
 		if (KeyaBusReceiveData.id == 0x05800001) {
 			// response to current request (this is also in heartbeat)

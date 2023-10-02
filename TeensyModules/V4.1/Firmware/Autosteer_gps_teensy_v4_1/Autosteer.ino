@@ -806,8 +806,8 @@ void SendUdp(uint8_t* data, uint8_t datalen, IPAddress dip, uint16_t dport)
 
 void SendUdpFreeForm(char str[], IPAddress dip, uint16_t dport)
 {
-	uint32_t start = millis();
-	char ForTheWire[sizeof(str) - 1 + strlen(str) + 1];
+	//uint32_t start = millis();
+	char ForTheWire[strlen(str) + 2];
 	strcpy(ForTheWire, beaconIdentifier);
 	strcat(ForTheWire, str);
 	Eth_udpAutoSteer.beginPacket(dip, dport);
