@@ -86,10 +86,6 @@ void CAN_Setup() {
 
 
 void keyaSend(uint8_t data[8]) {
-	//CAN_message_t KeyaBusSendData;
-	//KeyaBusSendData.id = KeyaPGN;
-	//KeyaBusSendData.flags.extended = true;
-	//KeyaBusSendData.len = 8;
 	memcpy(KeyaBusSendData.buf, data, 8);
 	Keya_Bus.write(KeyaBusSendData);
 }
@@ -98,50 +94,12 @@ void keyaSend(uint8_t data[8]) {
 void disableKeyaSteer() {
 	uint8_t buf[] = { 0x03, 0x0d, 0x20, 0x11, 0, 0, 0, 0 };
 	keyaSend(buf);
-	//if (debugKeya) Serial.println("Disabled Keya motor");
-}
-
-
-void disableKeyaSteerOriginal() {
-	CAN_message_t KeyaBusSendData;
-	KeyaBusSendData.id = KeyaPGN;
-	KeyaBusSendData.flags.extended = true;
-	KeyaBusSendData.len = 8;
-	KeyaBusSendData.buf[0] = 0x23;
-	KeyaBusSendData.buf[1] = 0x0c;
-	KeyaBusSendData.buf[2] = 0x20;
-	KeyaBusSendData.buf[3] = 0x01;
-	KeyaBusSendData.buf[4] = 0;
-	KeyaBusSendData.buf[5] = 0;
-	KeyaBusSendData.buf[6] = 0;
-	KeyaBusSendData.buf[7] = 0;
-	Keya_Bus.write(KeyaBusSendData);
-	if (debugKeya) UpdateKeyaStatus("Disabled Keya motor");
-}
-
-
-void enableKeyaSteerOriginal() {
-	CAN_message_t KeyaBusSendData;
-	KeyaBusSendData.id = KeyaPGN;
-	KeyaBusSendData.flags.extended = true;
-	KeyaBusSendData.len = 8;
-	KeyaBusSendData.buf[0] = 0x23;
-	KeyaBusSendData.buf[1] = 0x0d;
-	KeyaBusSendData.buf[2] = 0x20;
-	KeyaBusSendData.buf[3] = 0x01;
-	KeyaBusSendData.buf[4] = 0;
-	KeyaBusSendData.buf[5] = 0;
-	KeyaBusSendData.buf[6] = 0;
-	KeyaBusSendData.buf[7] = 0;
-	Keya_Bus.write(KeyaBusSendData);
-	//if (debugKeya) Serial.println("Enabled Keya motor");
 }
 
 
 void enableKeyaSteer() {
 	uint8_t buf[] = { 0x23, 0x0d, 0x20, 0x01, 0, 0, 0, 0 };
 	keyaSend(buf);
-	//if (debugKeya) Serial.println("Enabled Keya motor");
 }
 
 

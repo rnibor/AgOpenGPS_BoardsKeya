@@ -139,7 +139,7 @@ byte velocityPWM_Pin = 36;      // Velocity (MPH speed) PWM pin
 
 
 #include <FlexCAN_T4.h>
-// CRX1/CTX1 on Teensy are CAN3 on Tony's board
+// CRX1/CTX1 on Teensy are CAN1 on Tony's board
 // CRX2/CTX2 on Teensy are CAN2 on AIO board, CAN2 on Tony's board
 // CRX3/CTX3 on Teensy are CAN1 on AIO board, CAN3 on Tony's board
 FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_256> Keya_Bus;
