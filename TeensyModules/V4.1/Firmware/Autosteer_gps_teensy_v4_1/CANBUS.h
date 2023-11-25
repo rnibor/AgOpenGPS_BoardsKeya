@@ -3,6 +3,8 @@
 
 #include <FlexCAN_T4.h>
 
+extern uint8_t currentState, reading, previous, remoteSwitch, steerSwitch;
+
 void CAN_Setup();
 void CANBUS_Receive();
 

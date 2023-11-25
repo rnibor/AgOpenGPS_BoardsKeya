@@ -7,7 +7,9 @@
 #define AIO2x_CAN1 CAN3 // AIO 2.x version board, pins 16 and 17, use this
 #define AIO2x_CAN2 CAN2 // AIO 2.x version board, pins 18 and 19, use this
 #define AIO4x_CAN1 CAN3 // AIO 4.x version board, pins 16 and 17, use this
+// Change  vvvvvvvvvv
 FlexCAN_T4<AIO4x_CAN1, RX_SIZE_256, TX_SIZE_256> CANBUS;
+// Change  ^^^^^^^^^^
 
 const int8_t filterID = 0;
 const int8_t byteOffset = 1;
@@ -16,8 +18,11 @@ const int8_t ANDValue = 2;
 // Then, because these are machine specific, you'll need to set up the filters
 // pick from this list according to your machine, and uncomment the one you need
 
+int CANInfo[3] = { 0x18FFFB13  , 2, 0x10 }; // JD ATU engage button
+// JD ATU200, used for testing on the bench. This is NOT SUPPORTED by AOG, but is here for testing
+
 // CaseNH
-int CANInfo[3] = { 0x18FFB306 , 2, 0x10}; // Case Puma CVX 160 2015, button behind joystick
+//int CANInfo[3] = { 0x18FFB306 , 2, 0x10 }; // Case Puma CVX 160 2015, button behind joystick
 //int CANInfo[3] = { 0x18FFB031 , 2, 0x10}; // Case Puma CVX 160 2015, steer button on armrest
 //int CANInfo[3] = { 0x98FFB306 , 2, 0x10}; // Case Puma CVX 200 2015, button behind joystick
 //int CANInfo[3] = { 0x98FFB031 , 2, 0x10}; // Case Puma CVX 200 2015, steer button on armrest
@@ -52,23 +57,45 @@ int CANInfo[3] = { 0x18FFB306 , 2, 0x10}; // Case Puma CVX 160 2015, button behi
 
 
 
-
 bool debugCANBUS = true;
+CAN_message_t CANBUSData;
 
 void CAN_Setup() {
 	// we're only listening, so no need to claim an address?
 	CANBUS.begin();
-	CANBUS.setBaudRate(250000, LISTEN_ONLY);
+	CANBUS.setBaudRate(250000); // , LISTEN_ONLY);
 	delay(1000);
-	if (CANInfo[filterID] > 0xffff) {
-		CANBUS.setFIFOFilter(0, CANInfo[filterID], EXT);
-	}
-	else {
-		CANBUS.setFIFOFilter(0, CANInfo[filterID], STD);
-	}
+	// temporarily remove all filters
+	//if (CANInfo[filterID] > 0xffff) {
+	// Serial.print("Setting extended filter ");Serial.println(CANInfo[filterID], HEX);
+	//	CANBUS.setFIFOFilter(0, CANInfo[filterID], EXT);
+	//}
+	//else {
+	//  Serial.print("Setting standard filter ");Serial.println(CANInfo[filterID], HEX);
+	//	CANBUS.setFIFOFilter(0, CANInfo[filterID], STD);
+	//}
 	if (debugCANBUS) Serial.println("Initialised CANBUS");
 }
 
 void CANBUS_Receive() {
-
+	if (CANBUS.read(CANBUSData)) {
+		Serial.println("CANBUS message received!");
+		// if we receive a filtered message, do the bit checking
+		// There should be no need to check a CANBUS ID becuase we're filtering on it - should only receive filtered messages
+		if (debugCANBUS) {
+			Serial.print("CANBUS ID: ");
+			Serial.print(CANBUSData.id, HEX); Serial.print("  ");
+			Serial.print("Byte of Interest: "); Serial.print(byteOffset); Serial.print(" - ");
+			Serial.println(CANBUSData.buf[CANInfo[byteOffset]], HEX);
+		}
+		if ((CANBUSData.buf[CANInfo[byteOffset]] & CANInfo[ANDValue])) {
+			if (debugCANBUS) Serial.println("CANBUS bit state: true - engaging");
+			// not 100% these are correct, lemme know !
+			if (currentState == 1)
+			{
+				currentState = 0;
+				steerSwitch = 0;
+			}
+		}
+	}
 }

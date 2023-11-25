@@ -349,6 +349,7 @@ void setup()
 
 void loop()
 {
+    CANBUS_Receive();
     if (GGA_Available == false && !passThroughGPS && !passThroughGPS2)
     {
         if (systick_millis_count - PortSwapTime >= 10000)
