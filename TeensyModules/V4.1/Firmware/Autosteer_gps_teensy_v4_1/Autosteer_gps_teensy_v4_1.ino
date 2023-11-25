@@ -25,6 +25,7 @@
 // CFG-UART2-BAUDRATE 460800
 // Serial 2 In RTCM
 
+#include "CANBUS.h"
 /************************* User Settings *************************/
 // Serial Ports
 #define SerialAOG Serial                //AgIO USB conection
@@ -339,6 +340,9 @@ void setup()
   Serial.println(useCMPS);
   Serial.print("useBNO08x = ");
   Serial.println(useBNO08x);
+
+  Serial.println("Right... time for some CANBUS!");
+  CAN_Setup();
 
   Serial.println("\r\nEnd setup, waiting for GPS...\r\n");
 }
