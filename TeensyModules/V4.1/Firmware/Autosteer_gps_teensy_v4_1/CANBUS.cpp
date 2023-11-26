@@ -17,8 +17,7 @@ const int8_t byteOffset = 1;
 const int8_t ANDValue = 2;
 uint32_t lastCANCommand; // Need to delay processing CANBUS messages for a bit, so we don't process multiple messages
 
-// Then, because these are machine specific, you'll need to set up the filters
-// pick from this list according to your machine, and uncomment the one you need
+// UNCOMMENT ONLY ONE CANINFO LINE BELOW !!!
 
 // CaseNH
 //int CANInfo[3] = { 0x18FFB306 , 2, 0x10 }; // Case Puma CVX 160 2015, button behind joystick
@@ -55,8 +54,13 @@ int CANInfo[3] = { 0x45a , 1, 0x04 }; // MF headland management button
 //int CANInfo[3] = { 0x18EF1CF0 , 0, 0x0F}; //code unsure here, could be && [1] == 0x60 as well
 
 
+// ============================================
+// You don't need to change anything below here
+// ============================================
 
-bool debugCANBUS = true;
+
+
+bool debugCANBUS = false;
 CAN_message_t CANBUSData;
 
 void CAN_Setup() {
