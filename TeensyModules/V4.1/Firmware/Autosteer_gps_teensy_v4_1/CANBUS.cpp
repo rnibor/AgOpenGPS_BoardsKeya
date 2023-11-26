@@ -4,12 +4,13 @@
 
 #include "CANBUS.h"
 
-#define AIO2x_CAN1 CAN3 // AIO 2.x version board, pins 16 and 17, use this
-#define AIO2x_CAN2 CAN2 // AIO 2.x version board, pins 18 and 19, use this
-#define AIO4x_CAN1 CAN3 // AIO 4.x version board, pins 16 and 17, use this
-// Change  vvvvvvvvvv
-FlexCAN_T4<AIO4x_CAN1, RX_SIZE_256, TX_SIZE_256> CANBUS;
-// Change  ^^^^^^^^^^
+// AIO 2.x version board, pins 16 and 17, use CAN3
+// AIO 2.x version board, pins 18 and 19, use CAN2
+// AIO 4.x version board, pins 16 and 17, use CAN3
+// 
+// Change  vvvv
+FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_256> TeensyCAN;
+// Change  ^^^^
 
 const int8_t filterID = 0;
 const int8_t byteOffset = 1;
@@ -17,9 +18,6 @@ const int8_t ANDValue = 2;
 
 // Then, because these are machine specific, you'll need to set up the filters
 // pick from this list according to your machine, and uncomment the one you need
-
-int CANInfo[3] = { 0x18FFFB13  , 2, 0x10 }; // JD ATU engage button
-// JD ATU200, used for testing on the bench. This is NOT SUPPORTED by AOG, but is here for testing
 
 // CaseNH
 //int CANInfo[3] = { 0x18FFB306 , 2, 0x10 }; // Case Puma CVX 160 2015, button behind joystick
@@ -32,7 +30,7 @@ int CANInfo[3] = { 0x18FFFB13  , 2, 0x10 }; // JD ATU engage button
 //int CANInfo[3] = { 0x14FF7706 , 2, 0xC4}; // Case Puma CVX 165 2022, steer button on armrest (note, this is full byte, not bit)
 
 // Massey Ferguson
-//int CANInfo[3] = { 0x45a , 1, 0x04}; // MF headland management button
+int CANInfo[3] = { 0x45a , 1, 0x04 }; // MF headland management button
 //int CANInfo[3] = { 0xCFF2621 , 3, 0x04}; // MF S-series steering engage
 
 
@@ -62,30 +60,33 @@ CAN_message_t CANBUSData;
 
 void CAN_Setup() {
 	// we're only listening, so no need to claim an address?
-	CANBUS.begin();
-	CANBUS.setBaudRate(250000); // , LISTEN_ONLY);
+	TeensyCAN.begin();
+	TeensyCAN.setBaudRate(250000); // , LISTEN_ONLY);
+	TeensyCAN.enableFIFO();
+	TeensyCAN.setFIFOFilter(REJECT_ALL);
 	delay(1000);
-	// temporarily remove all filters
-	//if (CANInfo[filterID] > 0xffff) {
-	// Serial.print("Setting extended filter ");Serial.println(CANInfo[filterID], HEX);
-	//	CANBUS.setFIFOFilter(0, CANInfo[filterID], EXT);
-	//}
-	//else {
-	//  Serial.print("Setting standard filter ");Serial.println(CANInfo[filterID], HEX);
-	//	CANBUS.setFIFOFilter(0, CANInfo[filterID], STD);
-	//}
+	if (CANInfo[filterID] > 0xffff) {
+		Serial.print("Setting extended filter 0x"); Serial.println(CANInfo[filterID], HEX);
+		TeensyCAN.setFIFOFilter(0, CANInfo[filterID], EXT);
+	}
+	else {
+		Serial.print("Setting standard filter 0x"); Serial.println(CANInfo[filterID], HEX);
+		TeensyCAN.setFIFOFilter(0, CANInfo[filterID], STD);
+	}
 	if (debugCANBUS) Serial.println("Initialised CANBUS");
+	Serial.println("Sleeping for a bit, so you can read this");
+	delay(5000);
 }
 
 void CANBUS_Receive() {
-	if (CANBUS.read(CANBUSData)) {
+	if (TeensyCAN.read(CANBUSData)) {
 		Serial.println("CANBUS message received!");
 		// if we receive a filtered message, do the bit checking
 		// There should be no need to check a CANBUS ID becuase we're filtering on it - should only receive filtered messages
 		if (debugCANBUS) {
 			Serial.print("CANBUS ID: ");
 			Serial.print(CANBUSData.id, HEX); Serial.print("  ");
-			Serial.print("Byte of Interest: "); Serial.print(byteOffset); Serial.print(" - ");
+			Serial.print("Byte of interest at offset "); Serial.print(CANInfo[byteOffset]); Serial.print("  Value: ");
 			Serial.println(CANBUSData.buf[CANInfo[byteOffset]], HEX);
 		}
 		if ((CANBUSData.buf[CANInfo[byteOffset]] & CANInfo[ANDValue])) {
