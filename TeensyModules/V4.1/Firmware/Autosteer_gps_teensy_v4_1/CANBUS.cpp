@@ -15,6 +15,7 @@ FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_256> TeensyCAN;
 const int8_t filterID = 0;
 const int8_t byteOffset = 1;
 const int8_t ANDValue = 2;
+uint32_t lastCANCommand; // Need to delay processing CANBUS messages for a bit, so we don't process multiple messages
 
 // Then, because these are machine specific, you'll need to set up the filters
 // pick from this list according to your machine, and uncomment the one you need
@@ -60,6 +61,7 @@ CAN_message_t CANBUSData;
 
 void CAN_Setup() {
 	// we're only listening, so no need to claim an address?
+	lastCANCommand = millis();
 	TeensyCAN.begin();
 	TeensyCAN.setBaudRate(250000); // , LISTEN_ONLY);
 	TeensyCAN.enableFIFO();
@@ -74,13 +76,11 @@ void CAN_Setup() {
 		TeensyCAN.setFIFOFilter(0, CANInfo[filterID], STD);
 	}
 	if (debugCANBUS) Serial.println("Initialised CANBUS");
-	Serial.println("Sleeping for a bit, so you can read this");
-	delay(5000);
+	delay(3000);
 }
 
 void CANBUS_Receive() {
 	if (TeensyCAN.read(CANBUSData)) {
-		Serial.println("CANBUS message received!");
 		// if we receive a filtered message, do the bit checking
 		// There should be no need to check a CANBUS ID becuase we're filtering on it - should only receive filtered messages
 		if (debugCANBUS) {
@@ -89,12 +89,20 @@ void CANBUS_Receive() {
 			Serial.print("Byte of interest at offset "); Serial.print(CANInfo[byteOffset]); Serial.print("  Value: ");
 			Serial.println(CANBUSData.buf[CANInfo[byteOffset]], HEX);
 		}
-		if ((CANBUSData.buf[CANInfo[byteOffset]] & CANInfo[ANDValue])) {
-			if (debugCANBUS) Serial.println("CANBUS bit state: true - engaging");
+		if ((CANBUSData.buf[CANInfo[byteOffset]] & CANInfo[ANDValue]) && millis() - lastCANCommand > 1000) {
+			lastCANCommand = millis();
+			if (debugCANBUS) Serial.println("CANBUS bit state: true");
 			// not 100% these are correct, lemme know !
 			if (currentState == 1)
 			{
 				currentState = 0;
+				steerSwitch = 1;
+				if (debugCANBUS) Serial.println("Engaging steering");
+			}
+			else
+			{
+				if (debugCANBUS) Serial.println("Disengaging steering");
+				currentState = 1;
 				steerSwitch = 0;
 			}
 		}
