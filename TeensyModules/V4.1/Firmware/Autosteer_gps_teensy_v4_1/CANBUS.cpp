@@ -22,8 +22,6 @@ uint32_t lastCANCommand; // Need to delay processing CANBUS messages for a bit, 
 // CaseNH
 //int CANInfo[3] = { 0x18FFB306 , 2, 0x10 }; // Case Puma CVX 160 2015, button behind joystick
 //int CANInfo[3] = { 0x18FFB031 , 2, 0x10}; // Case Puma CVX 160 2015, steer button on armrest
-//int CANInfo[3] = { 0x98FFB306 , 2, 0x10}; // Case Puma CVX 200 2015, button behind joystick
-//int CANInfo[3] = { 0x98FFB031 , 2, 0x10}; // Case Puma CVX 200 2015, steer button on armrest
 //int CANInfo[3] = { 0x14FF7706 , 0, 0x82}; // Case Puma CVX 165 2022, steer button on armrest (note, this is full byte, not bit)
 //int CANInfo[3] = { 0x14FF7706 , 0, 0xB2}; // Case Puma CVX 165 2022, steer button on armrest (note, this is full byte, not bit)
 //int CANInfo[3] = { 0x14FF7706 , 2, 0xC1}; // Case Puma CVX 165 2022, steer button on armrest (note, this is full byte, not bit)
@@ -86,7 +84,7 @@ void CAN_Setup() {
 void CANBUS_Receive() {
 	if (TeensyCAN.read(CANBUSData)) {
 		// if we receive a filtered message, do the bit checking
-		// There should be no need to check a CANBUS ID becuase we're filtering on it - should only receive filtered messages
+		// There should be no need to check a CANBUS ID because we're filtering on it - should only receive filtered messages
 		if (debugCANBUS) {
 			Serial.print("CANBUS ID: ");
 			Serial.print(CANBUSData.id, HEX); Serial.print("  ");
