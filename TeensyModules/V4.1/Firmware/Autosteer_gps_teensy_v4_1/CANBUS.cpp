@@ -30,7 +30,7 @@ uint32_t lastCANCommand; // Need to delay processing CANBUS messages for a bit, 
 // Massey Ferguson
 int CANInfo[3] = { 0x45a , 1, 0x04 }; // MF headland management button
 //int CANInfo[3] = { 0xCFF2621 , 3, 0x04}; // MF S-series steering engage
-
+// int CANInfo[3] = { 0x210, 1, 0x20}; // MF 7720 Headland management button
 
 // Codes below here need validated and checked !!!
 
