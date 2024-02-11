@@ -2,6 +2,8 @@
 // KeyaCANBUS
 // Trying to get Keya to steer the tractor over CANBUS
 
+#define IsNewModel 1
+
 #define lowByte(w) ((uint8_t)((w) & 0xFF))
 #define highByte(w) ((uint8_t)((w) >> 8))
 
@@ -61,22 +63,6 @@ void CAN_Setup() {
 	Serial.println("In Keya CAN-Setup");
 	Keya_Bus.begin();
 	Keya_Bus.setBaudRate(250000);
-	// Dedicated bus, zero chat from others. No need for filters
-//	CAN_message_t msgV;
-//	msgV.id = KeyaPGN;
-//	msgV.flags.extended = true;
-//	msgV.len = 8;
-//	// claim an address. Don't think I need to do this tho
-//	// anyway, just pinched this from Claas address. TODO, looks like we can do without, ditch this
-//	msgV.buf[0] = 0x00;
-//	msgV.buf[1] = 0x00;
-//	msgV.buf[2] = 0xC0;
-//	msgV.buf[3] = 0x0C;
-//	msgV.buf[4] = 0x00;
-//	msgV.buf[5] = 0x17;
-//	msgV.buf[6] = 0x02;
-//	msgV.buf[7] = 0x20;
-//	Keya_Bus.write(msgV);
 	delay(1000);
 	KeyaBusSendData.id = KeyaPGN;
 	KeyaBusSendData.flags.extended = true;
@@ -92,7 +78,11 @@ void keyaSend(uint8_t data[8]) {
 
 
 void disableKeyaSteer() {
-	uint8_t buf[] = { 0x03, 0x0d, 0x20, 0x11, 0, 0, 0, 0 };
+#ifdef IsNewModel
+  uint8_t buf[] = { 0x23, 0x0c, 0x20, 0x01, 0, 0, 0, 0 };
+#else
+  uint8_t buf[] = { 0x03, 0x0d, 0x20, 0x11, 0, 0, 0, 0 };
+#endif
 	keyaSend(buf);
 }
 
@@ -102,47 +92,13 @@ void enableKeyaSteer() {
 	keyaSend(buf);
 }
 
-
-void SteerKeyaOriginal(int steerSpeed) {
-	if (!keyaDetected) return;
-	int actualSpeed = map(steerSpeed, -255, 255, -995, 998);
-	if (pwmDrive == 0) {
-		disableKeyaSteer();
-		//if (debugKeya) Serial.println("pwmDrive zero - disabling");
-		return; // don't need to go any further, if we're disabling, we're disabling
-	}
-	if (debugKeya) Serial.println("told to steer, with " + String(steerSpeed) + " so I converted that to speed " + String(actualSpeed));
-
-	CAN_message_t KeyaBusSendData;
-	KeyaBusSendData.id = KeyaPGN;
-	KeyaBusSendData.flags.extended = true;
-	KeyaBusSendData.len = 8;
-	KeyaBusSendData.buf[0] = 0x23;
-	KeyaBusSendData.buf[1] = 0x00;
-	KeyaBusSendData.buf[2] = 0x20;
-	KeyaBusSendData.buf[3] = 0x01;
-	if (steerSpeed < 0) {
-		KeyaBusSendData.buf[4] = highByte(actualSpeed);
-		KeyaBusSendData.buf[5] = lowByte(actualSpeed);
-		KeyaBusSendData.buf[6] = 0xff;
-		KeyaBusSendData.buf[7] = 0xff;
-		if (debugKeya) Serial.println("pwmDrive < zero - clockwise - steerSpeed " + String(steerSpeed));
-	}
-	else {
-		KeyaBusSendData.buf[4] = highByte(actualSpeed);
-		KeyaBusSendData.buf[5] = lowByte(actualSpeed);
-		KeyaBusSendData.buf[6] = 0x00;
-		KeyaBusSendData.buf[7] = 0x00;
-		if (debugKeya) Serial.println("pwmDrive > zero - anti-clockwise - steerSpeed " + String(steerSpeed));
-	}
-	Keya_Bus.write(KeyaBusSendData);
-	enableKeyaSteer();
-}
-
-
 void SteerKeya(int steerSpeed) {
 	if (!keyaDetected) return;
-	int actualSpeed = map(steerSpeed, -255, 255, -995, 998);
+#ifdef IsNewModel
+	int actualSpeed = map(steerSpeed, -255, 255, -9995, 9998);
+#else
+  int actualSpeed = map(steerSpeed, -255, 255, -995, 998);
+#endif
 	if (pwmDrive == 0) {
 		disableKeyaSteer();
 		//if (debugKeya) Serial.println("pwmDrive zero - disabling");
@@ -152,17 +108,31 @@ void SteerKeya(int steerSpeed) {
 
 	uint8_t buf[] = { 0x23, 0x00, 0x20, 0x01, 0, 0, 0, 0 };
 	if (steerSpeed < 0) {
+#ifdef IsNewModel
+		buf[6] = highByte(actualSpeed);
+		buf[7] = lowByte(actualSpeed);
+		buf[4] = 0xff;
+		buf[5] = 0xff;
+#else
 		buf[4] = highByte(actualSpeed);
 		buf[5] = lowByte(actualSpeed);
 		buf[6] = 0xff;
 		buf[7] = 0xff;
+#endif
 		if (debugKeya) Serial.println("pwmDrive < zero - clockwise - steerSpeed " + String(steerSpeed));
 	}
 	else {
+#ifdef IsNewModel
+		buf[6] = highByte(actualSpeed);
+		buf[7] = lowByte(actualSpeed);
+		buf[4] = 0x00;
+		buf[5] = 0x00;
+#else
 		buf[4] = highByte(actualSpeed);
 		buf[5] = lowByte(actualSpeed);
 		buf[6] = 0x00;
 		buf[7] = 0x00;
+#endif
 		if (debugKeya) Serial.println("pwmDrive > zero - anti-clockwise - steerSpeed " + String(steerSpeed));
 	}
 	keyaSend(buf);
@@ -189,7 +159,7 @@ void KeyaBus_Receive() {
 			keyaMotorStatus = !bitRead(KeyaBusReceiveData.buf[7], 0);
 			if (!keyaDetected) {
 				if (debugKeya) Serial.println("Keya heartbeat detected! Enabling Keya canbus & using reported motor current for disengage");
-				SendUdpFreeForm("Keya motor signature detected - I'll steer that way!", Eth_ipDestination, portDestination);
+				//SendUdpFreeForm("Keya motor signature detected - I'll steer that way!", Eth_ipDestination, portDestination);
 				keyaDetected = true;
 			}
 			// 0-1 - Cumulative value of angle (360 def / circle)
