@@ -804,17 +804,17 @@ void SendUdp(uint8_t* data, uint8_t datalen, IPAddress dip, uint16_t dport)
 	Eth_udpAutoSteer.endPacket();
 }
 
-void SendUdpFreeForm(char str[], IPAddress dip, uint16_t dport)
-{
-	//uint32_t start = millis();
-	char ForTheWire[strlen(str) + 2];
-	strcpy(ForTheWire, beaconIdentifier);
-	strcat(ForTheWire, str);
-	Eth_udpAutoSteer.beginPacket(dip, dport);
-	Eth_udpAutoSteer.write(ForTheWire, sizeof(ForTheWire));
-	Eth_udpAutoSteer.endPacket();
-	//Serial.println("Send freeform took " + String(millis() - start) + " milliseconds");
-}
+//void SendUdpFreeForm(char str[], IPAddress dip, uint16_t dport)
+//{
+//	//uint32_t start = millis();
+//	char ForTheWire[strlen(str) + 2];
+//	strcpy(ForTheWire, beaconIdentifier);
+//	strcat(ForTheWire, str);
+//	Eth_udpAutoSteer.beginPacket(dip, dport);
+//	Eth_udpAutoSteer.write(ForTheWire, sizeof(ForTheWire));
+//	Eth_udpAutoSteer.endPacket();
+//	//Serial.println("Send freeform took " + String(millis() - start) + " milliseconds");
+//}
 #endif
 
 //ISR Steering Wheel Encoder

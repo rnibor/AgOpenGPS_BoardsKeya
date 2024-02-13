@@ -29,8 +29,8 @@
 // lansalot's attempt at Keya integration
 // (he apologizes in advance)
 
-uint32_t KeyaBeacon = millis();
-char beaconIdentifier[] = {0x80,0x99};
+//uint32_t KeyaBeacon = millis();
+//char beaconIdentifier[] = {0x80,0x99};
 
 
 /************************* User Settings *************************/
@@ -697,13 +697,13 @@ void loop()
     digitalWrite(Power_on_LED, 0);
     digitalWrite(Ethernet_Active_LED, 1);
   }
-  if (millis() - KeyaBeacon > 5000) {
-      // just testing, let's send a beacon every 5 seconds
-      //char str[] = "Hello world";
-      Serial.println("Sending beacon");
-      SendUdpFreeForm("Hello world", Eth_ipDestination, portDestination);
-      KeyaBeacon = millis();
-  }
+//  if (millis() - KeyaBeacon > 5000) {
+//      // just testing, let's send a beacon every 5 seconds
+//      //char str[] = "Hello world";
+//      Serial.println("Sending beacon");
+//      SendUdpFreeForm("Hello world", Eth_ipDestination, portDestination);
+//      KeyaBeacon = millis();
+//  }
 }//End Loop
 //**************************************************************************
 
