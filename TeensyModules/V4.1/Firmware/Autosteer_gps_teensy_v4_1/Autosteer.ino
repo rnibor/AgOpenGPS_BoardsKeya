@@ -369,13 +369,13 @@ void autosteerLoop()
 		{
 			if (keyaDetected) {
 				// Matt did it this way
-				sensorReading = sensorReading * 0.7 + KeyaCurrentSensorReading * 0.3; // then use keya current data
-				//sensorReading = KeyaCurrentSensorReading;
-				//if (KeyaCurrentSensorReading >= steerConfig.PulseCountMax) {
-				//	steerSwitch = 1; // reset values like it turned off
-				//	currentState = 1;
-				//	previous = 0;
-				//}
+				// sensorReading = sensorReading * 0.7 + KeyaCurrentSensorReading * 0.3; // then use keya current data
+				sensorReading = KeyaCurrentSensorReading;
+				if (abs(KeyaCurrentSensorReading) >= steerConfig.PulseCountMax) {
+					steerSwitch = 1; // reset values like it turned off
+					currentState = 1;
+					previous = 0;
+				}
 			}
 			else { // otherwise continue using analog input on PCB
 				sensorSample = (float)analogRead(CURRENT_SENSOR_PIN);

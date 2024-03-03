@@ -5,7 +5,7 @@
 // Teensy Serial 7 RX (28) to F9P Position receiver TX1 (Position data)
 // Teensy Serial 7 TX (29) to F9P Position receiver RX1 (RTCM data for RTK)
 // Teensy Serial 2 RX (7) to F9P Heading receiver TX1 (Relative position from left antenna to right antenna)
-// Teensy Serial 2 TX (8) to F9P Heading receiver RX1
+// Teensy Serial 2 TX (8) to F9P Heading receiver RX1m
 // F9P Position receiver TX2 to F9P Heading receiver RX2 (RTCM data for Moving Base)
 //
 // Configuration of receiver
