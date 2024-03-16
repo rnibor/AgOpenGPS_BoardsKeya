@@ -14,6 +14,11 @@
 //Slow clockwise	0x23 0x00 0x20 0x01 0xFE 0x0C 0xFF 0xFF (0xfe0c signed dec is - 500)
 //Slow anti - clockwise	0x23 0x00 0x20 0x01 0x01 0xf4 0x00 0x00 (0x01f4 signed dec is 500)
 
+// Note, new model swaps order of speed bytes. Above is [4][5], below is [6][7]
+
+//Slow clockwise 0x23 0x00 0x20 0x01 0xFF 0xFF 0xF8 0xFF  (08G-v1 model)
+//Fast clockwise 0x23 0x00 0x20 0x01 0xFF 0xFF 0xD8 0xF0  (08G-v1 model)
+
 
 uint8_t KeyaSteerPGN[] = { 0x23, 0x00, 0x20, 0x01, 0,0,0,0 }; // last 4 bytes change ofc
 uint8_t KeyaHeartbeat[] = { 0, 0, 0, 0, 0, 0, 0, 0, };
@@ -104,7 +109,7 @@ void SteerKeya(int steerSpeed) {
 		//if (debugKeya) Serial.println("pwmDrive zero - disabling");
 		return; // don't need to go any further, if we're disabling, we're disabling
 	}
-	if (debugKeya) Serial.println("told to steer, with " + String(steerSpeed) + " so I converted that to speed " + String(actualSpeed));
+	//if (debugKeya) Serial.println("told to steer, with " + String(steerSpeed) + " so I converted that to speed " + String(actualSpeed));
 
 	uint8_t buf[] = { 0x23, 0x00, 0x20, 0x01, 0, 0, 0, 0 };
 	if (steerSpeed < 0) {
@@ -119,7 +124,7 @@ void SteerKeya(int steerSpeed) {
 		buf[6] = 0xff;
 		buf[7] = 0xff;
 #endif
-		if (debugKeya) Serial.println("pwmDrive < zero - clockwise - steerSpeed " + String(steerSpeed));
+		//if (debugKeya) Serial.println("pwmDrive < zero - clockwise - steerSpeed " + String(steerSpeed));
 	}
 	else {
 #ifdef IsNewModel
@@ -133,7 +138,7 @@ void SteerKeya(int steerSpeed) {
 		buf[6] = 0x00;
 		buf[7] = 0x00;
 #endif
-		if (debugKeya) Serial.println("pwmDrive > zero - anti-clockwise - steerSpeed " + String(steerSpeed));
+		//if (debugKeya) Serial.println("pwmDrive > zero - anti-clockwise - steerSpeed " + String(steerSpeed));
 	}
 	keyaSend(buf);
 	enableKeyaSteer();
@@ -170,8 +175,15 @@ void KeyaBus_Receive() {
 			// TODO Yeah, if we ever see something here, fire off a disable, refuse to engage autosteer or..?
 			//KeyaCurrentSensorReading = abs((int16_t)((KeyaBusReceiveData.buf[5] << 8) | KeyaBusReceiveData.buf[4]));
 			//if (KeyaCurrentSensorReading > 255) KeyaCurrentSensorReading -= 255;
-			KeyaCurrentSensorReading = KeyaBusReceiveData.buf[5] * 20;
-			//if (debugKeya) Serial.println("Heartbeat current is " + String(KeyaCurrentSensorReading));
+			//KeyaCurrentSensorReading = abs(KeyaBusReceiveData.buf[4]) * 20;
+
+			if (KeyaBusReceiveData.buf[4] == 0xFF) {
+				KeyaCurrentSensorReading = (256 - KeyaBusReceiveData.buf[5]) * 40;
+			}
+			else {
+				KeyaCurrentSensorReading = KeyaBusReceiveData.buf[5] * 40;
+			}
+			if (debugKeya) Serial.println("Heartbeat current is " + String(KeyaCurrentSensorReading));
 
 			if (KeyaBusReceiveData.buf[7] != 0) {
 
@@ -193,15 +205,14 @@ void KeyaBus_Receive() {
 
 		if (KeyaBusReceiveData.id == 0x05800001) {
 			// response to current request (this is also in heartbeat)
-			if (isPatternMatch(KeyaBusReceiveData, keyaCurrentResponse, sizeof(keyaCurrentResponse))) {
-				// Current is unsigned float in [4]
-				// set the motor current variable, when you find out what that is
-				KeyaCurrentSensorReading = KeyaBusReceiveData.buf[4] * 2.5; // so that AoG's display shows "amps"
+			//if (isPatternMatch(KeyaBusReceiveData, keyaCurrentResponse, sizeof(keyaCurrentResponse))) {
+			//	// Current is unsigned float in [4]
+			//	// set the motor current variable, when you find out what that is
 
-				if (debugKeya) {
-					Serial.println("Returned current is " + KeyaCurrentSensorReading);
-				}
-			}
+			//	if (debugKeya) {
+			//		Serial.println("Returned current is " + KeyaCurrentSensorReading);
+			//	}
+			//}
 		}
 	}
 }
