@@ -119,6 +119,7 @@ float steerAngleError = 0; //setpoint - actual
 
 //pwm variables
 int16_t pwmDrive = 0, pwmDisplay = 0;
+float pwmDriveF = 0;
 float pValue = 0;
 float errorAbs = 0;
 float highLowPerDeg = 0;
@@ -461,6 +462,7 @@ void autosteerLoop()
 			}
 			else digitalWrite(DIR1_RL_ENABLE, 1);
 			steerAngleError = steerAngleActual - steerAngleSetPoint;   //calculate the steering error
+			Serial.println("angle: " + String(steerAngleError));
 			//if (abs(steerAngleError)< steerSettings.lowPWM) steerAngleError = 0;
 
 			calcSteeringPID();  //do the pid

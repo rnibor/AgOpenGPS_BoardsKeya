@@ -97,10 +97,10 @@ void enableKeyaSteer() {
 	keyaSend(buf);
 }
 
-void SteerKeya(int steerSpeed) {
+void SteerKeya(int steerSpeed, float fSteerSpeed) {
 	if (!keyaDetected) return;
 #ifdef IsNewModel
-	int actualSpeed = map(steerSpeed, -255, 255, -9995, 9998);
+	int actualSpeed = map(fSteerSpeed, -255, 255, -9995, 9998);
 #else
   int actualSpeed = map(steerSpeed, -255, 255, -995, 998);
 #endif
@@ -183,7 +183,7 @@ void KeyaBus_Receive() {
 			else {
 				KeyaCurrentSensorReading = KeyaBusReceiveData.buf[5] * 40;
 			}
-			if (debugKeya) Serial.println("Heartbeat current is " + String(KeyaCurrentSensorReading));
+			//if (debugKeya) Serial.println("Heartbeat current is " + String(KeyaCurrentSensorReading));
 
 			if (KeyaBusReceiveData.buf[7] != 0) {
 
