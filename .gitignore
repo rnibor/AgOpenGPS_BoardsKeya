@@ -367,3 +367,4 @@ __vm/
 .vscode/
 output/
 *.bak
+/TeensyModules/V4.1/Firmware/Autosteer_gps_teensy_v4_1/build/teensy.avr.teensy41
