@@ -462,7 +462,7 @@ void autosteerLoop()
 			}
 			else digitalWrite(DIR1_RL_ENABLE, 1);
 			steerAngleError = steerAngleActual - steerAngleSetPoint;   //calculate the steering error
-			Serial.println("angle: " + String(steerAngleError));
+			//Serial.println("angle: " + String(steerAngleError));
 			//if (abs(steerAngleError)< steerSettings.lowPWM) steerAngleError = 0;
 
 			calcSteeringPID();  //do the pid
@@ -640,6 +640,7 @@ void ReceiveUdp()
 					if (aog2Count++ > 2)
 					{
 						//Send fromAutosteer2
+						//Serial.println("Sending value " + String((byte)round(sensorReading)));
 						PGN_250[5] = (byte)sensorReading;
 
 						//add the checksum for AOG2

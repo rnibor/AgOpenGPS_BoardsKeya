@@ -81,6 +81,9 @@ void keyaSend(uint8_t data[8]) {
 	Keya_Bus.write(KeyaBusSendData);
 }
 
+//void queryCurrent() {
+//	keyaSend(keyaCurrentQuery);
+//}	
 
 void disableKeyaSteer() {
 #ifdef IsNewModel
@@ -141,6 +144,7 @@ void SteerKeya(int steerSpeed, float fSteerSpeed) {
 		//if (debugKeya) Serial.println("pwmDrive > zero - anti-clockwise - steerSpeed " + String(steerSpeed));
 	}
 	keyaSend(buf);
+	//queryCurrent();
 	enableKeyaSteer();
 }
 
@@ -178,11 +182,13 @@ void KeyaBus_Receive() {
 			//KeyaCurrentSensorReading = abs(KeyaBusReceiveData.buf[4]) * 20;
 
 			if (KeyaBusReceiveData.buf[4] == 0xFF) {
-				KeyaCurrentSensorReading = (256 - KeyaBusReceiveData.buf[5]) * 40;
+				KeyaCurrentSensorReading = (256 - KeyaBusReceiveData.buf[5]) * 20;
+				Serial.println("Current reading: " + String(KeyaCurrentSensorReading));
 			}
 			else {
-				KeyaCurrentSensorReading = KeyaBusReceiveData.buf[5] * 40;
+				KeyaCurrentSensorReading = KeyaBusReceiveData.buf[5];
 			}
+
 			//if (debugKeya) Serial.println("Heartbeat current is " + String(KeyaCurrentSensorReading));
 
 			if (KeyaBusReceiveData.buf[7] != 0) {
@@ -203,16 +209,16 @@ void KeyaBus_Receive() {
 		// response from most commands 0x05800001
 		// could have been separate codes, but oh no...
 
-		if (KeyaBusReceiveData.id == 0x05800001) {
-			// response to current request (this is also in heartbeat)
-			//if (isPatternMatch(KeyaBusReceiveData, keyaCurrentResponse, sizeof(keyaCurrentResponse))) {
-			//	// Current is unsigned float in [4]
-			//	// set the motor current variable, when you find out what that is
+		//if (KeyaBusReceiveData.id == 0x05800001) {
+		//	// response to current request (this is also in heartbeat)
+		//	if (isPatternMatch(KeyaBusReceiveData, keyaCurrentResponse, sizeof(keyaCurrentResponse))) {
+		//	//	// Current is unsigned float in [4]
+		//	//	// set the motor current variable, when you find out what that is
 
-			//	if (debugKeya) {
-			//		Serial.println("Returned current is " + KeyaCurrentSensorReading);
-			//	}
-			//}
-		}
+		//		if (debugKeya) {
+		//			Serial.println("Returned current is " + String(KeyaBusReceiveData.buf[7]));
+		//		}
+		//	}
+		//}
 	}
 }
