@@ -26,9 +26,10 @@ uint32_t lastCANCommand; // Need to delay processing CANBUS messages for a bit, 
 //int CANInfo[3] = { 0x14FF7706 , 0, 0xB2}; // Case Puma CVX 165 2022, steer button on armrest (note, this is full byte, not bit)
 //int CANInfo[3] = { 0x14FF7706 , 2, 0xC1}; // Case Puma CVX 165 2022, steer button on armrest (note, this is full byte, not bit)
 //int CANInfo[3] = { 0x14FF7706 , 2, 0xC4}; // Case Puma CVX 165 2022, steer button on armrest (note, this is full byte, not bit)
+int CANInfo[3] = { 0x18FF1A03 , 2, 0x15 }; // NH, steer button on joystick
 
 // Massey Ferguson
-int CANInfo[3] = { 0x45a , 1, 0x04 }; // MF headland management button
+//int CANInfo[3] = { 0x45a , 1, 0x04 }; // MF headland management button
 //int CANInfo[3] = { 0xCFF2621 , 3, 0x04}; // MF S-series steering engage
 // int CANInfo[3] = { 0x210, 1, 0x20}; // MF 7720 Headland management button
 
