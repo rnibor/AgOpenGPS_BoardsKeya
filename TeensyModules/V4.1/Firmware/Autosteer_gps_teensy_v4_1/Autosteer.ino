@@ -283,7 +283,7 @@ void autosteerLoop()
 		//If connection lost to AgOpenGPS, the watchdog will count up and turn off steering
 		if (watchdogTimer++ > 250) {
 			watchdogTimer = WATCHDOG_FORCE_VALUE;
-			Serial.println("Lost connection to AOG - disabling Keya commands");
+			//Serial.println("Lost connection to AOG - disabling Keya commands");
 			keyaDetected = false;
 		}
 
@@ -663,7 +663,6 @@ void ReceiveUdp()
 				//--------------------------------------------------------------------------
 			}
 
-			//steer settings
 			else if (autoSteerUdpData[3] == 0xFC && Autosteer_running)  //252
 			{
 				//PID values
@@ -730,7 +729,8 @@ void ReceiveUdp()
 				steerConfigInit();
 
 			}//end FB
-			else if (autoSteerUdpData[3] == 200) // Hello from AgIO
+
+			else if (autoSteerUdpData[3] == 0xC8) // 200 - Hello from AgIO (not in spreadsheet?)
 			{
 				if (Autosteer_running)
 				{
@@ -744,6 +744,8 @@ void ReceiveUdp()
 					helloFromAutoSteer[9] = switchByte;
 
 					SendUdp(helloFromAutoSteer, sizeof(helloFromAutoSteer), Eth_ipDestination, portDestination);
+					SendUdp(helloFromMachine, sizeof(helloFromMachine), Eth_ipDestination, portDestination);
+
 				}
 				if (useBNO08x || useCMPS)
 				{
@@ -751,7 +753,7 @@ void ReceiveUdp()
 				}
 			}
 
-			else if (autoSteerUdpData[3] == 201)
+			else if (autoSteerUdpData[3] == 0xC9) // 201 - Network Address
 			{
 				//make really sure this is the subnet pgn
 				if (autoSteerUdpData[4] == 5 && autoSteerUdpData[5] == 201 && autoSteerUdpData[6] == 201)
@@ -766,8 +768,7 @@ void ReceiveUdp()
 				}
 			}//end 201
 
-			//whoami
-			else if (autoSteerUdpData[3] == 202)
+			else if (autoSteerUdpData[3] == 0xCA) // 202, network scan request
 			{
 				//make really sure this is the reply pgn
 				if (autoSteerUdpData[4] == 3 && autoSteerUdpData[5] == 202 && autoSteerUdpData[6] == 202)
@@ -793,6 +794,22 @@ void ReceiveUdp()
 					//off to AOG
 					SendUdp(scanReply, sizeof(scanReply), ipDest, portDest);
 				}
+			}
+
+			else if (autoSteerUdpData[3] == 0xEB) // 229 64-bit sections
+			{
+				Serial.println("*******************");
+			}
+
+			else if (autoSteerUdpData[3] == 0xED) // 237 machine board shizz I think
+			{
+			}
+
+			else if (autoSteerUdpData[3] == 0xE5) // 229 64-bit sections
+			{
+				memcpy(aogSections, &autoSteerUdpData[5], 8);
+				printArrayInBinary(aogSections, sizeof(aogSections));
+				ReceiveSectionDataFromAOG();
 			}
 		} //end if 80 81 7F
 	}

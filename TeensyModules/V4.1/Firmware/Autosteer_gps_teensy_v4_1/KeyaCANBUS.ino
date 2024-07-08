@@ -2,7 +2,7 @@
 // KeyaCANBUS
 // Trying to get Keya to steer the tractor over CANBUS
 
-#define IsNewModel 1
+//#define IsNewModel 1
 
 #define lowByte(w) ((uint8_t)((w) & 0xFF))
 #define highByte(w) ((uint8_t)((w) >> 8))
@@ -63,6 +63,7 @@ bool isPatternMatch(const CAN_message_t& message, const uint8_t* pattern, size_t
 	return memcmp(message.buf, pattern, patternSize) == 0;
 }
 
+#include "Machine.h"
 
 void CAN_Setup() {
 	Serial.println("In Keya CAN-Setup");
@@ -72,6 +73,7 @@ void CAN_Setup() {
 	KeyaBusSendData.id = KeyaPGN;
 	KeyaBusSendData.flags.extended = true;
 	KeyaBusSendData.len = 8;
+	MachineCANBUS_Setup();
 	if (debugKeya) Serial.println("Initialised CANBUS");
 }
 

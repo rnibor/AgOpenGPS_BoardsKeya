@@ -132,6 +132,8 @@ int relposnedByteCount = 0;
 elapsedMillis speedPulseUpdateTimer = 0;
 byte velocityPWM_Pin = 36;      // Velocity (MPH speed) PWM pin
 
+#include "Machine.h"
+
 #include "zNMEAParser.h"
 #include <Wire.h>
 #include "BNO08x_AOG.h"
@@ -142,7 +144,7 @@ byte velocityPWM_Pin = 36;      // Velocity (MPH speed) PWM pin
 // CRX1/CTX1 on Teensy are CAN1 on Tony's board
 // CRX2/CTX2 on Teensy are CAN2 on AIO board, CAN2 on Tony's board
 // CRX3/CTX3 on Teensy are CAN1 on AIO board, CAN3 on Tony's board
-FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_256> Keya_Bus;
+FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_256> Keya_Bus; // FOR MACHINE BOARD DEV ONLY, THIS SHOULD BE CAN3 !!!
 int8_t KeyaCurrentSensorReading = 0;
 bool keyaDetected = false;
 
