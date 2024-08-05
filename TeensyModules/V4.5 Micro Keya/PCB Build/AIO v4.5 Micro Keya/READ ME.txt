@@ -1,0 +1,74 @@
+CHANGES ON V4.5 BORD ROBIN:
+- Scheme divided into several pages
+- Motor and valve control deleted
+- Interface to tractor according to ISO 11786 added
+- No Ampseal connector but several screw terminals
+- Longer format so that the PCB has space next to the driver's seat
+
+CHANGES ON V4.5 BOARDS:
+- replaced C16133 100uF Tantalum to correct JLCPCB rotation conflict
+- replaced green 0603 LEDs with 0805
+- added "+" markers on silkscreen for diodes, LEDs, caps to aid with verifying JLCPCB placement
+
+CHANGES ON V4.4 BOARDS:
+-changed Q3 and Q9 to similar available parts
+- added schottky diodes for WAS inputs
+- added solder jumpers for Speed pulse +/- outputs
+- replaced as many parts with Basic as possible
+- optos, buttons are also SMT so less hand soldering fees
+- replaced ext 22uF caps with basic 100uF tantalum
+- Added diodes on the Teensy power inputs
+- Increased the lock traces to handle 4 amp max continious.
+
+HOW TO ORDER
+
+Order the PCB on JLCPCB.com
+
+if JLCPCB have shortage check in "JLCPCB ALTERNATE PARTS.xlsx" for alternate parts.
+
+check in "OTHER USEFULL PARTS.xlsx" for the complete list or parts need for the board.
+
+
+
+
+Part that you don't have to order (Prices for 5 boards):
+
+If no Danfoss, you don't need: U14 (7 USD), H21 (0.15 USD), H22 (0.15 USD), R43 (0.01 USD)
+
+
+if no CANBUS, you don't need: U17 (8 USD), D5 (3 USD) 
+
+
+
+There is no much to save by removing SpeedPulse and LOCK:
+
+-----------------------------------------------------------------------------------------
+Board's setup
+Refer to "board setup.jpg"
+
+If all the parts were available when ordering the board is almost ready to use.
+-Install a fuse (Mini ATO blade fuse)
+
+To use a cytron motor controler, solder a wire to the correct power source (orange circles)
+From "Pwr" to "12V power for Cytron" for source from the fuse protected input. For battery voltage use.
+From "Pwr" to "Pin 18 -Alt Cytron Power" for source from a dedicated input (Ampseal pin 18) For converter or other special use.
+
+For Danfoss put the 2 jumpers marked "Danfoss" and "Danfoss Us"
+
+If using external devices to turn off autosteer, put jumpers in the blue cercled areas
+-no need for jumpers when using current sence
+-for remote put a jumper on "remote"
+-for 0-5v sensor put a jumper on "pressure"
+-for 4-20ma sensor put jumpers on "pressure" and "4-20ma"
+
+There are solder Pads for advanced configurations
+
+
+
+
+
+
+
+
+
+
