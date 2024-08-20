@@ -36,9 +36,13 @@
 #define PWM2_RPWM  3
 
 //--------------------------- Switch Input Pins ------------------------
+#define LIFTED_PIN 27
 #define STEERSW_PIN 32
+#define SPEED_RADAR_PIN 33
 #define WORKSW_PIN 34
+#define SPEED_GEAR_PIN 35
 #define REMOTE_PIN 37
+#define SPEED_PTO_PIN 38
 
 //Define sensor pin for current or pressure sensor
 #define CURRENT_SENSOR_PIN A17
@@ -197,9 +201,13 @@ void autosteerSetup()
 	}
 
 	//keep pulled high and drag low to activate, noise free safe
-	pinMode(WORKSW_PIN, INPUT_PULLUP);
-	pinMode(STEERSW_PIN, INPUT_PULLUP);
-	pinMode(REMOTE_PIN, INPUT_PULLUP);
+  pinMode(LIFTED_PIN, INPUT_PULLUP);
+  pinMode(STEERSW_PIN, INPUT_PULLUP);
+  pinMode(SPEED_RADAR_PIN, INPUT_PULLUP);
+  pinMode(WORKSW_PIN, INPUT_PULLUP);
+	pinMode(SPEED_GEAR_PIN, INPUT_PULLUP);
+  pinMode(REMOTE_PIN, INPUT_PULLUP);
+	pinMode(SPEED_PTO_PIN, INPUT_PULLUP);
 	pinMode(DIR1_RL_ENABLE, OUTPUT);
 
 	// Disable digital inputs for analog input pins
