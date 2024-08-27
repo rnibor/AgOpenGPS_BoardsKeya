@@ -2,7 +2,7 @@
 // KeyaCANBUS
 // Trying to get Keya to steer the tractor over CANBUS
 
-#define IsNewModel 1
+#undef IsNewModel
 
 #define lowByte(w) ((uint8_t)((w) & 0xFF))
 #define highByte(w) ((uint8_t)((w) >> 8))
@@ -23,33 +23,34 @@
 uint8_t KeyaSteerPGN[] = { 0x23, 0x00, 0x20, 0x01, 0,0,0,0 }; // last 4 bytes change ofc
 uint8_t KeyaHeartbeat[] = { 0, 0, 0, 0, 0, 0, 0, 0, };
 
-uint8_t keyaDisableCommand[] = { 0x23, 0x0C, 0x20, 0x01 };
-uint8_t keyaDisableResponse[] = { 0x60, 0x0C, 0x20, 0x00 };
+uint8_t keyaDisableCommand[] = { 0x23, 0x0C, 0x20, 0x01, 0, 0, 0, 0 };
+uint8_t keyaDisableResponse[] = { 0x60, 0x0C, 0x20, 0x00, 0, 0, 0, 0 };
 
-uint8_t keyaEnableCommand[] = { 0x23, 0x0D, 0x20, 0x01 };
-uint8_t keyaEnableResponse[] = { 0x60, 0x0D, 0x20, 0x00 };
+uint8_t keyaEnableCommand[] = { 0x23, 0x0D, 0x20, 0x01, 0, 0, 0, 0 };
+uint8_t keyaEnableResponse[] = { 0x60, 0x0D, 0x20, 0x00, 0, 0, 0, 0 };
 
-uint8_t keyaSpeedCommand[] = { 0x23, 0x00, 0x20, 0x01 };
-uint8_t keyaSpeedResponse[] = { 0x60, 0x00, 0x20, 0x00 };
+uint8_t keyaSpeedCommand[] = { 0x23, 0x00, 0x20, 0x01, 0, 0, 0, 0 };
+uint8_t keyaSpeedResponse[] = { 0x60, 0x00, 0x20, 0x00, 0, 0, 0, 0 };
 
-uint8_t keyaCurrentQuery[] = { 0x40, 0x00, 0x21, 0x01 };
-uint8_t keyaCurrentResponse[] = { 0x60, 0x00, 0x21, 0x01 };
+uint8_t keyaCurrentQuery[] = { 0x40, 0x00, 0x21, 0x01, 0, 0, 0, 0 };
+uint8_t keyaCurrentResponse[] = { 0x60, 0x00, 0x21, 0x01, 0, 0, 0, 0 };
 // templates for matching responses of interest
 // uint8_t keyaCurrentResponse[] = { 0x60, 0x12, 0x21, 0x01 };
 
-uint8_t keyaFaultQuery[] = { 0x40, 0x12, 0x21, 0x01 };
-uint8_t keyaFaultResponse[] = { 0x60, 0x12, 0x21, 0x01 };
+uint8_t keyaFaultQuery[] = { 0x40, 0x12, 0x21, 0x01, 0, 0, 0, 0 };
+uint8_t keyaFaultResponse[] = { 0x60, 0x12, 0x21, 0x01, 0, 0, 0, 0 };
 
-uint8_t keyaVoltageQuery[] = { 0x40, 0x0D, 0x21, 0x02 };
-uint8_t keyaVoltageResponse[] = { 0x60, 0x0D, 0x21, 0x02 };
+uint8_t keyaVoltageQuery[] = { 0x40, 0x0D, 0x21, 0x02, 0, 0, 0, 0 };
+uint8_t keyaVoltageResponse[] = { 0x60, 0x0D, 0x21, 0x02, 0, 0, 0, 0 };
 
-uint8_t keyaTemperatureQuery[] = { 0x40, 0x0F, 0x21, 0x01 };
-uint8_t keyaTemperatureResponse[] = { 0x60, 0x0F, 0x21, 0x01 };
+uint8_t keyaTemperatureQuery[] = { 0x40, 0x0F, 0x21, 0x01, 0, 0, 0, 0 };
+uint8_t keyaTemperatureResponse[] = { 0x60, 0x0F, 0x21, 0x01, 0, 0, 0, 0 };
 
-uint8_t keyaVersionQuery[] = { 0x40, 0x01, 0x11, 0x11 };
-uint8_t keyaVersionResponse[] = { 0x60, 0x01, 0x11, 0x11 };
+uint8_t keyaVersionQuery[] = { 0x40, 0x01, 0x11, 0x11, 0, 0, 0, 0 };
+uint8_t keyaVersionResponse[] = { 0x60, 0x01, 0x11, 0x11, 0, 0, 0, 0 };
 
 uint32_t KeyaStatusUpdate = millis();
+#define KEYA_DATA_LENGTH 8
 
 
 uint64_t KeyaPGN = 0x06000001;
@@ -71,13 +72,15 @@ void CAN_Setup() {
 	delay(1000);
 	KeyaBusSendData.id = KeyaPGN;
 	KeyaBusSendData.flags.extended = true;
-	KeyaBusSendData.len = 8;
+	KeyaBusSendData.len = KEYA_DATA_LENGTH;
 	if (debugKeya) Serial.println("Initialised CANBUS");
 }
 
-
-void keyaSend(uint8_t data[8]) {
-	memcpy(KeyaBusSendData.buf, data, 8);
+void keyaSend(uint8_t data[KEYA_DATA_LENGTH]) {
+	KeyaBusSendData.id = KeyaPGN;
+	KeyaBusSendData.flags.extended = true;
+	KeyaBusSendData.len = KEYA_DATA_LENGTH;
+	memcpy(&KeyaBusSendData.buf, data, KEYA_DATA_LENGTH);
 	Keya_Bus.write(KeyaBusSendData);
 }
 
@@ -86,18 +89,12 @@ void keyaSend(uint8_t data[8]) {
 //}	
 
 void disableKeyaSteer() {
-#ifdef IsNewModel
-  uint8_t buf[] = { 0x23, 0x0c, 0x20, 0x01, 0, 0, 0, 0 };
-#else
-  uint8_t buf[] = { 0x03, 0x0d, 0x20, 0x11, 0, 0, 0, 0 };
-#endif
-	keyaSend(buf);
+	keyaSend(keyaDisableCommand);
 }
 
 
 void enableKeyaSteer() {
-	uint8_t buf[] = { 0x23, 0x0d, 0x20, 0x01, 0, 0, 0, 0 };
-	keyaSend(buf);
+	keyaSend(keyaEnableCommand);
 }
 
 void SteerKeya(int steerSpeed, float fSteerSpeed) {
@@ -105,7 +102,7 @@ void SteerKeya(int steerSpeed, float fSteerSpeed) {
 #ifdef IsNewModel
 	int actualSpeed = map(fSteerSpeed, -255, 255, -9995, 9998);
 #else
-  int actualSpeed = map(steerSpeed, -255, 255, -995, 998);
+	int actualSpeed = map(steerSpeed, -255, 255, -995, 998);
 #endif
 	if (pwmDrive == 0) {
 		disableKeyaSteer();
@@ -113,8 +110,8 @@ void SteerKeya(int steerSpeed, float fSteerSpeed) {
 		return; // don't need to go any further, if we're disabling, we're disabling
 	}
 	//if (debugKeya) Serial.println("told to steer, with " + String(steerSpeed) + " so I converted that to speed " + String(actualSpeed));
-
-	uint8_t buf[] = { 0x23, 0x00, 0x20, 0x01, 0, 0, 0, 0 };
+	uint8_t buf[KEYA_DATA_LENGTH];
+	memcpy(buf, keyaSpeedCommand, KEYA_DATA_LENGTH);
 	if (steerSpeed < 0) {
 #ifdef IsNewModel
 		buf[6] = highByte(actualSpeed);
