@@ -37,10 +37,10 @@
 // Serial Ports
 #define SerialAOG Serial                //AgIO USB conection
 #define SerialRTK Serial3               //RTK radio
-HardwareSerial* SerialGPS = &Serial7;   //Main postion receiver (GGA) (Serial2 must be used here with T4.0 / Basic Panda boards - Should auto swap)
-HardwareSerial* SerialGPS2 = &Serial2;  //Dual heading receiver 
-HardwareSerial* SerialGPSTmp = NULL;
-//HardwareSerial* SerialAOG = &Serial;
+HardwareSerialIMXRT* SerialGPS = &Serial7;   //Main postion receiver (GGA) (Serial2 must be used here with T4.0 / Basic Panda boards - Should auto swap)
+HardwareSerialIMXRT* SerialGPS2 = &Serial2;  //Dual heading receiver 
+HardwareSerialIMXRT* SerialGPSTmp = NULL;
+//HardwareSerialIMXRT* SerialAOG = &Serial;
 
 const int32_t baudAOG = 115200; 
 const int32_t baudGPS = 460800;
@@ -401,7 +401,7 @@ void loop()
 
             if (aogSerialCmdBuffer[aogSerialCmdCounter] == 'R')
             {
-                HardwareSerial* autoBaudSerial = NULL;
+                HardwareSerialIMXRT* autoBaudSerial = NULL;
 
                 // Reset SerialGPS and SerialGPS2
                 SerialGPS = &Serial7;
