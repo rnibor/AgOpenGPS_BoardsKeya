@@ -417,10 +417,6 @@ void autosteerLoop()
 		*/
 
 		//get steering position
-		steeringPosition = getKeyaSteeringPosition();
-		helloSteerPosition = steeringPosition - 6805;
-
-		/*
 		if (steerConfig.SingleInputWAS)   //Single Input ADS
 		{
 			adc.setMux(ADS1115_REG_CONFIG_MUX_SINGLE_0);
@@ -438,7 +434,7 @@ void autosteerLoop()
 
 			steeringPosition = (steeringPosition >> 1); //bit shift by 2  0 to 13610 is 0 to 5v
 			helloSteerPosition = steeringPosition - 6800;
-		}*/
+		}
 
 		//DETERMINE ACTUAL STEERING POSITION
 

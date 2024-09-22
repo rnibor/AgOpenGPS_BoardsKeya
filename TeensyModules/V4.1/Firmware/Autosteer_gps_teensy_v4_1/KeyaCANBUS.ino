@@ -54,8 +54,6 @@ uint32_t KeyaStatusUpdate = millis();
 
 
 uint64_t KeyaPGN = 0x06000001;
-int16_t steeringPositionKeya = 6805; //from encoder sensor
-int16_t steeringPositionKeyaRaw = 0; //from encoder sensor raw value
 
 CAN_message_t KeyaBusSendData; // this is the stub message we'll send to the Keya bus
 
@@ -66,9 +64,6 @@ bool isPatternMatch(const CAN_message_t& message, const uint8_t* pattern, size_t
 	return memcmp(message.buf, pattern, patternSize) == 0;
 }
 
-int16_t getKeyaSteeringPosition() {
-	return steeringPositionKeya;
-}
 
 void CAN_Setup() {
 	Serial.println("In Keya CAN-Setup");
@@ -174,18 +169,6 @@ void KeyaBus_Receive() {
 				keyaDetected = true;
 			}
 			// 0-1 - Cumulative value of angle (360 def / circle)
-			steeringPositionKeyaRaw = (int16_t)((KeyaBusReceiveData.buf[0] << 8) | KeyaBusReceiveData.buf[1]);
-			//if (debugKeya) Serial.print("steeringPositionKeyaRaw is " + String(steeringPositionKeyaRaw));
-			steeringPositionKeya = (int16_t)(6805 + 5 * steeringPositionKeyaRaw);
-			if (steeringPositionKeya > 13610)
-			{
-				steeringPositionKeya = 13610;
-			}
-			else if (steeringPositionKeya < 0)
-			{
-				steeringPositionKeya = 0;
-			}
-			//if (debugKeya) Serial.println(" steeringPositionKeya is " + String(steeringPositionKeya));
 			// 2-3 - Motor speed, signed int eg -500 or 500
 			// 4-5 - Motor current, with "symbol" ? Signed I think that means, but it does appear to be a crap int. 1, 2 for 1, 2 amps etc
 			//		is that accurate enough for us?
