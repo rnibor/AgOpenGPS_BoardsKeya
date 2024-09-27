@@ -296,7 +296,7 @@ void autosteerLoop()
 		}
 
 		//read all the switches
-		workSwitch = digitalRead(LIFTED_PIN);  // read work switch
+		workSwitch = !digitalRead(LIFTED_PIN);  // read work switch
 
 		if (steerConfig.SteerSwitch == 1)         //steer switch on - off
 		{
