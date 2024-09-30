@@ -303,7 +303,7 @@ void autosteerLoop()
 			//steerSwitch = digitalRead(STEERSW_PIN); //read auto steer enable switch open = 0n closed = Off
 
 			// new code for steer "Switch" mode that keeps AutoSteer OFF after current/pressure kickout until switch is cycled
-			reading = digitalRead(STEERSW_PIN);
+			reading = workSwitch; //digitalRead(STEERSW_PIN);
 			if (reading == HIGH)  // switching "OFF"
 			{
 				steerSwitch = reading;
