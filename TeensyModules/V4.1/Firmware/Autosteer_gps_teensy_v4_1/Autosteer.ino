@@ -42,7 +42,6 @@
 #define WORKSW_PIN 34
 #define SPEED_GEAR_PIN 35
 #define REMOTE_PIN 37
-#define SPEED_PTO_PIN 38
 
 //Define sensor pin for current or pressure sensor
 #define CURRENT_SENSOR_PIN A17
@@ -207,7 +206,6 @@ void autosteerSetup()
   pinMode(WORKSW_PIN, INPUT_PULLUP);
 	pinMode(SPEED_GEAR_PIN, INPUT_PULLUP);
   pinMode(REMOTE_PIN, INPUT_PULLUP);
-	pinMode(SPEED_PTO_PIN, INPUT_PULLUP);
 	pinMode(DIR1_RL_ENABLE, OUTPUT);
 
 	// Disable digital inputs for analog input pins
@@ -278,7 +276,7 @@ void autosteerLoop()
 #endif
 	//Serial.println("AutoSteer loop");
 
-	// Loop triggers every 100 msec and sends back gyro heading, and roll, steer angle etc
+	// Loop triggers every 25 msec and sends back gyro heading, and roll, steer angle etc
 	currentTime = systick_millis_count;
 
 	if (currentTime - autsteerLastTime >= LOOP_TIME)
@@ -296,7 +294,14 @@ void autosteerLoop()
 		}
 
 		//read all the switches
-		workSwitch = !digitalRead(LIFTED_PIN);  // read work switch
+    if (digitalRead(WORKSW_PIN)) // Use Lifted 
+    {
+        workSwitch = !digitalRead(LIFTED_PIN);
+    }
+    else
+    {
+        workSwitch = (inputFrequencyPto.outSpeed < 300); // Use PTO speed
+    }
 
 		if (steerConfig.SteerSwitch == 1)         //steer switch on - off
 		{
@@ -306,11 +311,11 @@ void autosteerLoop()
 			reading = workSwitch; //digitalRead(STEERSW_PIN);
 			if (reading == HIGH)  // switching "OFF"
 			{
-				steerSwitch = reading;
+				steerSwitch = true;
 			}
 			else if (reading == LOW && previous == HIGH)
 			{
-				steerSwitch = reading;
+				steerSwitch = false;
 			}
 			previous = reading;
 			// end new code

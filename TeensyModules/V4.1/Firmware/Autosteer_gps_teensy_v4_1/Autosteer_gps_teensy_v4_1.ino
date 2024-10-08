@@ -83,6 +83,7 @@ uint32_t READ_BNO_TIME = 0;   //Used stop BNO data pile up (This version is with
 #define GPSGREEN_LED 10           //Green (Flashing = Dual bad, ON = Dual good)
 #define AUTOSTEER_STANDBY_LED 11  //Red
 #define AUTOSTEER_ACTIVE_LED 12   //Green
+#define SPEED_PTO_PIN 38
 uint32_t gpsReadyTime = 0;        //Used for GGA timeout
 
 //for v2.2
@@ -135,7 +136,7 @@ byte velocityPWM_Pin = 36;      // Velocity (MPH speed) PWM pin
 #include "zNMEAParser.h"
 #include <Wire.h>
 #include "BNO08x_AOG.h"
-
+#
 
 
 #include <FlexCAN_T4.h>
@@ -238,6 +239,22 @@ struct ubxPacket
 	////sfe_ublox_packet_validity_e classAndIDmatch; // Goes from NOT_DEFINED to VALID or NOT_VALID when the Class and ID match the requestedClass and requestedID
 };
 
+// Read speed inputs
+struct stReadFrequency
+{
+  boolean input;
+  boolean inputOld;
+  unsigned int counterValueAct;
+  unsigned int counterValueLast;
+  unsigned int previousTime;
+  unsigned int parCycleTime; //[ms] Afer this time frequency is calculated
+  unsigned int parNominator; //[] Result is multiplied by this value
+  unsigned int parDenominator; //[] Result is divided by this value
+  unsigned int outSpeedRaw; //[Hz] Result
+  unsigned int outSpeed; //[] Result mulitplied by parNominator / parDenominator
+};
+stReadFrequency inputFrequencyPto;
+
 // Setup procedure ------------------------
 void setup()
 {
@@ -253,6 +270,7 @@ void setup()
   pinMode(GPSGREEN_LED, OUTPUT);
   pinMode(AUTOSTEER_STANDBY_LED, OUTPUT);
   pinMode(AUTOSTEER_ACTIVE_LED, OUTPUT);
+  pinMode(SPEED_PTO_PIN, INPUT_PULLUP);
 
   // the dash means wildcard
   parser.setErrorHandler(errorHandler);
@@ -704,8 +722,54 @@ void loop()
 //      SendUdpFreeForm("Hello world", Eth_ipDestination, portDestination);
 //      KeyaBeacon = millis();
 //  }
+
+  // Read PTO speed
+  inputFrequencyPto.input = digitalRead(SPEED_PTO_PIN);
+  inputFrequencyPto.parCycleTime = 100; // alle 100ms
+  inputFrequencyPto.parNominator = 60; // rps -> rpm
+  inputFrequencyPto.parDenominator = 80; // 40Impulse * 2Flanken = 80 Flanken/Umdrehung
+
+  if (readFrequency(&inputFrequencyPto))
+  {
+    // show Hz on Serial too if available
+    Serial.print(inputFrequencyPto.counterValueLast);
+    Serial.print(", ");
+    Serial.print(inputFrequencyPto.outSpeedRaw);
+    Serial.print(" Hz, ");
+    Serial.print(inputFrequencyPto.outSpeed); 
+    Serial.println(" rpm");
+  }
+
 }//End Loop
 //**************************************************************************
+
+boolean readFrequency(stReadFrequency *self) {
+  
+  boolean newValue = false;
+  unsigned int timeDiff;
+  // self->counterValueAct every transision HIGH<->LOW
+  if (self->input != self->inputOld) {
+    self->counterValueAct++;  
+    self->inputOld = self->input;
+  }
+
+  // ------- every half second, self->counterValueAct is equal to Hz.---------------
+  timeDiff = millis() - self->previousTime;
+  if (timeDiff >= self->parCycleTime) {
+    newValue = true;
+    self->previousTime += self->parCycleTime;
+    
+    // Calculate frequency
+    self->outSpeedRaw = (self->counterValueAct * 1000) /timeDiff;
+    self->outSpeed = (self->outSpeed + (self->outSpeedRaw  * self->parNominator) /self->parDenominator)/2;
+
+    // reset to zero for the next half second's sample
+    self->counterValueLast = self->counterValueAct;
+    self->counterValueAct = 0L;
+  }
+  // return values
+  return newValue;
+}
 
 bool calcChecksum()
 {
