@@ -128,7 +128,7 @@ float errorAbs = 0;
 float highLowPerDeg = 0;
 
 //Steer switch button  ***********************************************************************************************************
-uint8_t currentState = 1, reading, previous = 0;
+uint8_t currentState = 1, reading, previous = 0, lifted = 0, lifted_last= 0, ptoOff= 0, ptoOff_last= 0, steerBtn= 0, steerBtn_last= 0;
 uint8_t pulseCount = 0; // Steering Wheel Encoder
 bool encEnable = false; //debounce flag
 uint8_t thisEnc = 0, lastEnc = 0;
@@ -294,18 +294,21 @@ void autosteerLoop()
 		}
 
 		//read all the switches
-    if (digitalRead(WORKSW_PIN)) // Use Lifted 
-    {
-        workSwitch = !digitalRead(LIFTED_PIN);
-    }
-    else
-    {
-        workSwitch = (inputFrequencyPto.outSpeed < 300); // Use PTO speed
-    }
-
+		steerBtn = digitalRead(WORKSW_PIN); // 1=Button pressed
+		lifted = digitalRead(LIFTED_PIN); // 1=lifted
+		ptoOff = (inputFrequencyPto.outSpeed < 300); // 1=PTO off
+		
 		if (steerConfig.SteerSwitch == 1)         //steer switch on - off
 		{
 			//steerSwitch = digitalRead(STEERSW_PIN); //read auto steer enable switch open = 0n closed = Off
+			if (digitalRead(WORKSW_PIN)) // Use Lifted 
+			{
+				workSwitch = !digitalRead(LIFTED_PIN);
+			}
+			else
+			{
+				workSwitch = (inputFrequencyPto.outSpeed < 300); // Use PTO speed
+	    		}
 
 			// new code for steer "Switch" mode that keeps AutoSteer OFF after current/pressure kickout until switch is cycled
 			reading = workSwitch; //digitalRead(STEERSW_PIN);
@@ -322,22 +325,22 @@ void autosteerLoop()
 		}
 		else if (steerConfig.SteerButton == 1)    //steer Button momentary
 		{
-			reading = digitalRead(STEERSW_PIN);
-			if (reading == LOW && previous == HIGH)
+			if (currentState == 1) // Automatic steering disabled
 			{
-				if (currentState == 1)
+				if ((!steerBtn && steerBtn_last) || (!lifted && lifted_last) || (!ptoOff && ptoOff_last)) // Switch on
 				{
-					currentState = 0;
-					steerSwitch = 0;
+					currentState = 0;	// Enable steering
+					steerSwitch = 0;	// steerSwitch: 0=automatic steering enabled
 				}
-				else
-				{
-					currentState = 1;
-					steerSwitch = 1;
+			else	// Automatic steering enabled
+			{
+				if ((!steerBtn && steerBtn_last) || (lifted && !lifted_last) || (ptoOff && !ptoOff_last)) // Switch off
+					currentState = 1;	// Disable steering
+					steerSwitch = 1;	// steerSwitch: 1=automatic steering disabled
 				}
 			}
-			previous = reading;
-		}
+			workSwitch = !steerSwitch; // workSwitch: 1=working
+ 		}
 		else                                      // No steer switch and no steer button
 		{
 			// So set the correct value. When guidanceStatus = 1,
@@ -356,6 +359,9 @@ void autosteerLoop()
 				previous = 0;
 			}
 		}
+		steerBtn_last = steerBtn;
+		lifted_last = lifted;
+		ptoOff_last = ptoOff;
 
 		if (steerConfig.ShaftEncoder && pulseCount >= steerConfig.PulseCountMax)
 		{
