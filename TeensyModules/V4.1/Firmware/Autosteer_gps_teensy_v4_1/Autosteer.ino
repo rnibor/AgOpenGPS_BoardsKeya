@@ -296,8 +296,8 @@ void autosteerLoop()
 		//read all the switches
 		steerBtn = digitalRead(STEERSW_PIN); // 1=Button pressed
 		workBtn = digitalRead(WORKSW_PIN); // 1=Button pressed
-		lifted = digitalRead(LIFTED_PIN); // 1=lifted
-		ptoOff = (inputFrequencyPto.outSpeed < 300); // 1=PTO off
+		lifted = !digitalRead(LIFTED_PIN); // 1=lifted
+		ptoOff = (inputFrequencyPto.outSpeed < 200); // 1=PTO off
 		
 		if (steerConfig.SteerSwitch == 1)         //steer switch on - off
 		{
@@ -309,7 +309,7 @@ void autosteerLoop()
 			else
 			{
 				workSwitch = (inputFrequencyPto.outSpeed < 300); // Use PTO speed
-	    		}
+	    }
 
 			// new code for steer "Switch" mode that keeps AutoSteer OFF after current/pressure kickout until switch is cycled
 			reading = workSwitch; //digitalRead(STEERSW_PIN);
@@ -328,21 +328,24 @@ void autosteerLoop()
 		{
 			if (currentState == 1) // Automatic steering disabled
 			{
-				if ((steerBtn && !steerBtn_last) || (!lifted && lifted_last) || (!ptoOff && ptoOff_last)) // Switch on
+				if ((!steerBtn && steerBtn_last) || (!lifted && lifted_last) || (!ptoOff && ptoOff_last)) // Switch on
 				{
 					currentState = 0;	// Enable steering
 					steerSwitch = 0;	// steerSwitch: 0=automatic steering enabled
 					workSwitch = 1;		// 1=Work
 				}
+      }
 			else	// Automatic steering enabled
 			{
-				if ((steerBtn && !steerBtn_last) || (lifted && !lifted_last) || (ptoOff && !ptoOff_last)) // Switch off
+				if ((!steerBtn && steerBtn_last) || (lifted && !lifted_last) || (ptoOff && !ptoOff_last)) // Switch off
+        {
 					currentState = 1;	// Disable steering
 					steerSwitch = 1;	// steerSwitch: 1=automatic steering disabled
 					workSwitch = 0;		// 0=No Work
 				}
 			}
 			if (workBtn && !workBtn_last) // Toggle work switch
+      {
 				workSwitch = !workSwitch;		// Toggle work switch
 			}
 			//workSwitch = !steerSwitch; // workSwitch: 1=working

@@ -732,12 +732,12 @@ void loop()
   if (readFrequency(&inputFrequencyPto))
   {
     // show Hz on Serial too if available
-    Serial.print(inputFrequencyPto.counterValueLast);
-    Serial.print(", ");
-    Serial.print(inputFrequencyPto.outSpeedRaw);
-    Serial.print(" Hz, ");
-    Serial.print(inputFrequencyPto.outSpeed); 
-    Serial.println(" rpm");
+    //Serial.print(inputFrequencyPto.counterValueLast);
+    //Serial.print(", ");
+    //Serial.print(inputFrequencyPto.outSpeedRaw);
+    //Serial.print(" Hz, ");
+    //Serial.print(inputFrequencyPto.outSpeed); 
+    //Serial.println(" rpm");
   }
 
 }//End Loop
