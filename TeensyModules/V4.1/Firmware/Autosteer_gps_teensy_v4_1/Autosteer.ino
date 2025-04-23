@@ -128,7 +128,7 @@ float errorAbs = 0;
 float highLowPerDeg = 0;
 
 //Steer switch button  ***********************************************************************************************************
-uint8_t currentState = 1, reading, previous = 0, lifted = 0, lifted_last= 0, ptoOff= 0, ptoOff_last= 0, steerBtn= 0, steerBtn_last= 0;
+uint8_t currentState = 1, reading, previous = 0, lifted = 0, lifted_last= 0, ptoOff= 0, ptoOff_last= 0, steerBtn= 0, steerBtn_last= 0, workBtn= 0, workBtn_last= 0;;
 uint8_t pulseCount = 0; // Steering Wheel Encoder
 bool encEnable = false; //debounce flag
 uint8_t thisEnc = 0, lastEnc = 0;
@@ -294,7 +294,8 @@ void autosteerLoop()
 		}
 
 		//read all the switches
-		steerBtn = digitalRead(WORKSW_PIN); // 1=Button pressed
+		steerBtn = digitalRead(STEERSW_PIN); // 1=Button pressed
+		workBtn = digitalRead(WORKSW_PIN); // 1=Button pressed
 		lifted = digitalRead(LIFTED_PIN); // 1=lifted
 		ptoOff = (inputFrequencyPto.outSpeed < 300); // 1=PTO off
 		
@@ -327,19 +328,24 @@ void autosteerLoop()
 		{
 			if (currentState == 1) // Automatic steering disabled
 			{
-				if ((!steerBtn && steerBtn_last) || (!lifted && lifted_last) || (!ptoOff && ptoOff_last)) // Switch on
+				if ((steerBtn && !steerBtn_last) || (!lifted && lifted_last) || (!ptoOff && ptoOff_last)) // Switch on
 				{
 					currentState = 0;	// Enable steering
 					steerSwitch = 0;	// steerSwitch: 0=automatic steering enabled
+					workSwitch = 1;		// 1=Work
 				}
 			else	// Automatic steering enabled
 			{
-				if ((!steerBtn && steerBtn_last) || (lifted && !lifted_last) || (ptoOff && !ptoOff_last)) // Switch off
+				if ((steerBtn && !steerBtn_last) || (lifted && !lifted_last) || (ptoOff && !ptoOff_last)) // Switch off
 					currentState = 1;	// Disable steering
 					steerSwitch = 1;	// steerSwitch: 1=automatic steering disabled
+					workSwitch = 0;		// 0=No Work
 				}
 			}
-			workSwitch = !steerSwitch; // workSwitch: 1=working
+			if (workBtn && !workBtn_last) // Toggle work switch
+				workSwitch = !workSwitch;		// Toggle work switch
+			}
+			//workSwitch = !steerSwitch; // workSwitch: 1=working
  		}
 		else                                      // No steer switch and no steer button
 		{
@@ -360,6 +366,7 @@ void autosteerLoop()
 			}
 		}
 		steerBtn_last = steerBtn;
+		workBtn_last = workBtn;
 		lifted_last = lifted;
 		ptoOff_last = ptoOff;
 
