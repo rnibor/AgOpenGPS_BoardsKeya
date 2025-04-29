@@ -70,8 +70,9 @@ uint8_t autoSteerUdpData[UDP_TX_PACKET_MAX_SIZE]; // Buffer For Receiving UDP Da
 
 // loop time variables in microseconds
 const uint16_t LOOP_TIME = 25; // 40Hz
-uint32_t autsteerLastTime = LOOP_TIME, timeSteerBtnPressed;
+uint32_t autsteerLastTime = LOOP_TIME;
 uint32_t currentTime = LOOP_TIME;
+int32_t timeSteerBtnPressed;
 
 const uint16_t WATCHDOG_THRESHOLD = 100;
 const uint16_t WATCHDOG_FORCE_VALUE = WATCHDOG_THRESHOLD + 2; // Should be greater than WATCHDOG_THRESHOLD
@@ -301,7 +302,7 @@ void autosteerLoop()
 
 		// read all the switches
 		steerBtn = !digitalRead(STEERSW_PIN);		// 1=Button pressed
-		workBtn = digitalRead(WORKSW_PIN);		   // 1=Button pressed
+		workBtn = !digitalRead(WORKSW_PIN);		   // 1=Button pressed
 		lifted = !digitalRead(LIFTED_PIN);		   // 1=lifted
 		ptoOff = (inputFrequencyPto.outSpeed < 200); // 1=PTO off
 
